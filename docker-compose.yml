@@ -1,0 +1,15 @@
+services:
+  webapp:
+    build: .
+    user: "0:989"
+    container_name: anchorpoint-web
+    restart: unless-stopped
+    # Logic: Host mode allows the app to see the real network interfaces
+    network_mode: host
+    environment:
+      - APP_PORT=4000
+    volumes:
+      # Optional: Mount the log file to your host to view it easily
+      - ./info.log:/app/info.log
+      # Logic: Mount the docker socket so system.GetDockerContainers() works
+      - /var/run/docker.sock:/var/run/docker.sock

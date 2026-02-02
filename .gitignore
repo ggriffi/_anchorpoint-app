@@ -1,0 +1,9 @@
+# Binaries
+anchorpoint-app
+*.exe
+
+# Logs
+*.log
+
+# Docker
+.dockerignore

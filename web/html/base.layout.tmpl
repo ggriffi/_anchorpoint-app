@@ -1,0 +1,60 @@
+{{define "base"}}
+<!doctype html>
+<html lang='en'>
+    <head>
+        <meta charset='utf-8'>
+        <title>{{template "title" .}} - AnchorPoint IT</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+        <style>
+            :root {
+                --primary-blue: #0056b3;
+                --dark-bg: #1a1a1a;
+                --card-bg: #ffffff;
+                --text-main: #333;
+                --text-muted: #666;
+                --border-color: #e1e4e8;
+            }
+            body {
+                font-family: 'Inter', -apple-system, system-ui, sans-serif;
+                background-color: #f8f9fa;
+                color: var(--text-main);
+                margin: 0;
+                line-height: 1.6;
+            }
+            header {
+                background-color: var(--dark-bg);
+                color: white;
+                padding: 1.5rem 2rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 4px solid var(--primary-blue);
+            }
+            header h1 { margin: 0; font-size: 1.5rem; }
+            header h1 a { color: white; text-decoration: none; }
+            .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+            footer {
+                text-align: center;
+                padding: 2rem;
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                border-top: 1px solid var(--border-color);
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1><a href='/'>AnchorPoint IT</a></h1>
+            <nav>Dashboard</nav>
+        </header>
+        <div class="container">
+            <main>
+                {{template "main" .}}
+            </main>
+        </div>
+        <footer>
+            &copy; 2026 AnchorPoint IT - Grounded IT for Leavenworth, KS
+        </footer>
+    </body>
+</html>
+{{end}}

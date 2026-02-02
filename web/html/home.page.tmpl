@@ -1,0 +1,132 @@
+{{template "base" .}}
+
+{{define "title"}}Network Utility Belt{{end}}
+
+{{define "main"}}
+<style>
+    .hero { margin-bottom: 2rem; }
+    .hero h2 { color: var(--dark-bg); margin-bottom: 0.5rem; }
+    .hero p { color: var(--text-muted); font-size: 1.1rem; }
+    
+    .stats-bar {
+        display: flex;
+        gap: 20px;
+        background: var(--dark-bg);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+    .stat-item span { color: #00ccff; font-weight: bold; }
+
+    .tool-grid { display: flex; flex-direction: column; gap: 1.5rem; }
+    
+    .card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        overflow: hidden;
+        display: flex;
+        min-height: 250px;
+    }
+    .card-sidebar {
+        background: #f1f3f5;
+        padding: 1.5rem;
+        width: 300px;
+        border-right: 1px solid var(--border-color);
+    }
+    .card-content { flex: 1; padding: 1.5rem; background: #fff; }
+    
+    input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        margin: 10px 0;
+    }
+    button {
+        width: 100%;
+        padding: 10px;
+        background: var(--primary-blue);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    pre {
+        background: #2d2d2d;
+        color: #61dafb; /* A nice cyan for visibility */
+        padding: 1rem;
+        border-radius: 5px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        margin: 0;
+        white-space: pre-wrap;
+    }
+</style>
+
+<div class="hero">
+    <h2>Grounded IT for Growing Organizations</h2>
+    <p>Security-focused network infrastructure for Leavenworth, KS.</p>
+</div>
+
+<div class="stats-bar">
+    <div class="stat-item">AnchorPoint Gateway: <span>{{.ServerPublicIP}}</span></div>
+    <div class="stat-item">Connection: <span>{{.GatewayStatus}}</span></div>
+</div>
+
+<section class="card" style="margin-bottom: 2rem;">
+    <div class="card-sidebar" style="width: 200px;">
+        <h3>Docker Host</h3>
+        <p>Active containers on this Debian node.</p>
+    </div>
+    <div class="card-content">
+        <pre>{{.DockerContainers}}</pre>
+    </div>
+</section>
+
+<div class="tool-grid">
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>ICMP Ping</h3>
+            <p>Check reachability for a specific IP or host.</p>
+            <form method="POST">
+                <input type="text" name="ping_ip" placeholder="8.8.8.8" required>
+                <button type="submit">Execute Ping</button>
+            </form>
+        </div>
+        <div class="card-content">
+            {{if .PingResult}}<pre>{{.PingResult}}</pre>{{else}}<p>Submit a host to begin.</p>{{end}}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>Traceroute</h3>
+            <p>Identify the network path and hop latency.</p>
+            <form method="POST">
+                <input type="text" name="trace_ip" placeholder="google.com" required>
+                <button type="submit">Run Trace</button>
+            </form>
+        </div>
+        <div class="card-content">
+            {{if .TraceResult}}<pre>{{.TraceResult}}</pre>{{else}}<p>Awaiting input...</p>{{end}}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>MTR Report</h3>
+            <p>Full path analysis with packet loss metrics.</p>
+            <form method="POST">
+                <input type="text" name="mtr_ip" placeholder="1.1.1.1" required>
+                <button type="submit">Generate MTR</button>
+            </form>
+        </div>
+        <div class="card-content">
+            {{if .MTRResult}}<pre>{{.MTRResult}}</pre>{{else}}<p>Awaiting input...</p>{{end}}
+        </div>
+    </section>
+</div>
+{{end}}
