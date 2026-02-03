@@ -100,7 +100,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		case "docker":
 			w.Write([]byte(system.GetDockerContainers()))
 		case "logs":
-			w.Write([]byte(app.getLogs("info.log")))
+			w.Write([]byte(app.getLogs()))
 		default:
 			// If an unknown refresh is requested, return a 400
 			http.Error(w, "Unknown refresh type", http.StatusBadRequest)
@@ -257,20 +257,28 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
-func (app *application) getLogs(filename string) string {
-	// Attempting to read from the current working directory
-	content, err := os.ReadFile("./" + filename)
+// This must be a method of the 'application' struct
+func (app *application) getLogs() string {
+	// os.ReadFile requires the "os" import
+	content, err := os.ReadFile("/app/info.log")
 	if err != nil {
-		return "Log Error: " + err.Error() // This will show you the exact path error in the UI
+		return "Log Error: " + err.Error()
 	}
 
-	// Split into lines
+	// strings.Split requires the "strings" import
 	lines := strings.Split(string(content), "\n")
+	var cleanLines []string
 
-	// If the file is long, only take the last 20 lines
-	if len(lines) > 20 {
-		lines = lines[len(lines)-21:]
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			cleanLines = append(cleanLines, line)
+		}
 	}
 
-	return strings.Join(lines, "\n")
+	// Logic to prevent index out of bounds errors
+	if len(cleanLines) > 20 {
+		cleanLines = cleanLines[len(cleanLines)-20:]
+	}
+
+	return strings.Join(cleanLines, "\n")
 }
