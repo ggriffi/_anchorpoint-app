@@ -48,7 +48,11 @@ type application struct {
 }
 
 func main() {
-	f, err := os.OpenFile("info.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	// 1. Define the absolute path to match your volume mount
+	logPath := "/app/info.log"
+
+	// 2. Open the file using the absolute path
+	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
