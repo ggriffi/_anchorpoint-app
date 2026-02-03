@@ -212,14 +212,21 @@
     let polyline = null;
 
     async function runDiagnostic(type) {
-        const ip = document.getElementById(type + '_ip').value;
-        const output = document.getElementById(type + '-output');
-        const status = document.getElementById(type + '-status');
+    const inputField = document.getElementById(type + '_ip');
+    // Logical Check: If the field exists, get the value; otherwise, default to empty string
+    const ip = inputField ? inputField.value : ""; 
+    
+    const output = document.getElementById(type + '-output');
+    const status = document.getElementById(type + '-status');
 
-        if (!ip) return;
+    // Only require an IP for tools that actually have an input field
+    if (type !== 'speedtest' && !ip) {
+        alert("Please enter a target IP or hostname.");
+        return;
+    }
 
-        output.textContent = "Requesting new data...";
-        status.style.display = "block";
+    output.textContent = "Requesting new data...";
+    status.style.display = "block";
 
         try {
             const response = await fetch('/', {
