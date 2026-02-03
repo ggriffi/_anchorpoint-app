@@ -63,3 +63,26 @@ func MTR(host string) (string, error) {
 	}
 	return sanitize(string(out)), nil
 }
+
+// RunSpeedtest executes the speedtest-cli utility in simple mode
+func RunSpeedtest() (string, error) {
+	// --simple returns only Ping, Download, and Upload values
+	cmd := exec.Command("speedtest-cli", "--simple")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(out), err
+	}
+	return string(out), nil
+}
+
+// RunIperf executes iPerf3 in client mode for a 10-second throughput test
+func RunIperf(server string) (string, error) {
+	// -c: client mode | -t 10: 10 second duration | -f m: format in Megabits
+	cmd := exec.Command("iperf3", "-c", server, "-t", "10", "-f", "m")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(out), err
+	}
+	// Note: We don't sanitize here to keep the iPerf table formatting
+	return string(out), nil
+}

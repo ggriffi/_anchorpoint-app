@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"anchorpoint-it.com/webapp/internal/network"
@@ -24,6 +25,8 @@ type templateData struct {
 	PingResult       string
 	TraceResult      string
 	MTRResult        string
+	SpeedtestResult  string
+	IperfResult      string
 }
 
 // HopGeo represents coordinates for a single network hop
@@ -89,7 +92,22 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Identify client IP
+	// Handle AJAX refreshes for Docker, Logs, and more
+	if refreshType := r.URL.Query().Get("refresh"); refreshType != "" {
+		w.Header().Set("Content-Type", "text/plain")
+
+		switch refreshType {
+		case "docker":
+			w.Write([]byte(system.GetDockerContainers()))
+		case "logs":
+			w.Write([]byte(app.getLogs("info.log")))
+		default:
+			// If an unknown refresh is requested, return a 400
+			http.Error(w, "Unknown refresh type", http.StatusBadRequest)
+		}
+		return
+	}
+
 	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
 		clientIP = proxyIP
@@ -118,7 +136,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 		var currentResult string
 
-		// Process specific tool results
+		// 1. Logic for choosing which tool to run
 		if ip := r.PostForm.Get("ping_ip"); ip != "" {
 			if network.Ping(ip) {
 				currentResult = ip + " is reachable."
@@ -128,23 +146,35 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			data.PingResult = currentResult
 		} else if ip := r.PostForm.Get("trace_ip"); ip != "" {
 			res, err := network.Traceroute(ip)
+			currentResult = res
 			if err != nil {
 				currentResult = err.Error()
-			} else {
-				currentResult = res
 			}
 			data.TraceResult = currentResult
 		} else if ip := r.PostForm.Get("mtr_ip"); ip != "" {
 			res, err := network.MTR(ip)
+			currentResult = res
 			if err != nil {
 				currentResult = err.Error()
-			} else {
-				currentResult = res
 			}
 			data.MTRResult = currentResult
+		} else if r.PostForm.Has("speedtest_run") {
+			res, err := network.RunSpeedtest()
+			currentResult = res
+			if err != nil {
+				currentResult = "Speedtest error: " + err.Error()
+			}
+			data.SpeedtestResult = currentResult
+		} else if ip := r.PostForm.Get("iperf_ip"); ip != "" {
+			res, err := network.RunIperf(ip)
+			currentResult = res
+			if err != nil {
+				currentResult = "iPerf error: " + err.Error()
+			}
+			data.IperfResult = currentResult
 		}
 
-		// AJAX Interceptor for the Spinner and Map
+		// 2. AJAX Interceptor (Returns JSON for the spinner/map)
 		if r.Header.Get("Accept") == "application/json" {
 			ips := extractIPs(currentResult)
 			var coords []HopGeo
@@ -164,11 +194,11 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
-			return
+			return // Stop here for AJAX requests
 		}
 	}
 
-	// Rendering logic for initial page load
+	// 3. THE RENDERING LOGIC (Runs for initial GET requests)
 	files := []string{
 		"./web/html/home.page.tmpl",
 		"./web/html/base.layout.tmpl",
@@ -225,4 +255,22 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (app *application) getLogs(filename string) string {
+	// Read the entire file
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return "Error reading logs: " + err.Error()
+	}
+
+	// Split into lines
+	lines := strings.Split(string(content), "\n")
+
+	// If the file is long, only take the last 20 lines
+	if len(lines) > 20 {
+		lines = lines[len(lines)-21:]
+	}
+
+	return strings.Join(lines, "\n")
 }

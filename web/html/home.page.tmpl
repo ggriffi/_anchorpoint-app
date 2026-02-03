@@ -112,10 +112,11 @@
 <section class="card" style="margin-bottom: 2rem;">
     <div class="card-sidebar" style="width: 200px;">
         <h3>Docker Host</h3>
-        <p>Active containers on this Debian node.</p>
+        <p>Active containers on this node.</p>
+        <button onclick="refreshDocker()" style="width: auto; padding: 5px 10px;">Refresh Status</button>
     </div>
     <div class="card-content">
-        <pre>{{.DockerContainers}}</pre>
+        <pre id="docker-output">{{.DockerContainers}}</pre>
     </div>
 </section>
 
@@ -170,6 +171,37 @@
     </section>
     
     </div>
+
+    <div class="tool-grid">
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>ISP Speedtest</h3>
+            <p>Measure bandwidth from the AnchorPoint Gateway.</p>
+            <button onclick="runDiagnostic('speedtest')">Run Speedtest</button>
+            <div id="speedtest-status" class="status-msg">
+                <span class="loader"></span> Testing throughput...
+            </div>
+        </div>
+        <div class="card-content">
+            <pre id="speedtest-output">Awaiting test...</pre>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>iPerf3 Client</h3>
+            <p>Test point-to-point throughput to a remote iPerf server.</p>
+            <input type="text" id="iperf_ip" placeholder="iperf.server.com">
+            <button onclick="runDiagnostic('iperf')">Execute iPerf</button>
+            <div id="iperf-status" class="status-msg">
+                <span class="loader"></span> Running 10s stress test...
+            </div>
+        </div>
+        <div class="card-content">
+            <pre id="iperf-output">Target required...</pre>
+        </div>
+    </section>
+</div>
 
 <script>
     // Initialize the map centered on Leavenworth, KS
@@ -238,5 +270,19 @@
         const group = new L.featureGroup(markers);
         map.fitBounds(group.getBounds().pad(0.1));
     }
+    async function refreshDocker() {
+    const output = document.getElementById('docker-output');
+    output.textContent = "Querying Docker daemon...";
+    
+    try {
+        const response = await fetch('/?refresh=docker', {
+            headers: { 'Accept': 'text/plain' }
+        });
+        const result = await response.text();
+        output.textContent = result;
+    } catch (err) {
+        output.textContent = "Error refreshing containers: " + err;
+    }
+}
 </script>
 {{end}}
