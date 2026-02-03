@@ -51,7 +51,7 @@ func Traceroute(host string) (string, error) {
 // MTR executes an MTR report and sanitizes the output.
 func MTR(host string) (string, error) {
 	// -r: report mode, -c 5: 5 cycles, -n: no DNS
-	cmd := exec.Command("mtr", "-r", "-c", "5", "-u", host)
+	cmd := exec.Command("mtr", "-r", "-c", "5", "-n", host)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), err

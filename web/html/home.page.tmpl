@@ -114,13 +114,15 @@
         <div class="card-sidebar">
             <h3>ICMP Ping</h3>
             <p>Check reachability for a specific IP or host.</p>
-            <form method="POST">
-                <input type="text" name="ping_ip" placeholder="8.8.8.8" required>
-                <button type="submit">Execute Ping</button>
-            </form>
+            <input type="text" id="ping_ip" placeholder="8.8.8.8" required>
+            <button onclick="runDiagnostic('ping')">Execute Ping</button>
+            
+            <div id="ping-status" class="status-msg">
+                <span class="loader"></span> Sending ICMP echo requests...
+            </div>
         </div>
-        <div class="card-content">
-            {{if .PingResult}}<pre>{{.PingResult}}</pre>{{else}}<p>Submit a host to begin.</p>{{end}}
+        <div class="card-content result-container">
+            <pre id="ping-output">Submit a host to begin.</pre>
         </div>
     </section>
 
@@ -128,16 +130,18 @@
         <div class="card-sidebar">
             <h3>Traceroute</h3>
             <p>Identify the network path and hop latency.</p>
-            <form method="POST">
-                <input type="text" name="trace_ip" placeholder="google.com" required>
-                <button type="submit">Run Trace</button>
-            </form>
+            <input type="text" id="trace_ip" placeholder="google.com" required>
+            <button onclick="runDiagnostic('trace')">Run Trace</button>
+            
+            <div id="trace-status" class="status-msg">
+                <span class="loader"></span> Tracing network path...
+            </div>
         </div>
-        <div class="card-content">
-            {{if .TraceResult}}<pre>{{.TraceResult}}</pre>{{else}}<p>Awaiting input...</p>{{end}}
+        <div class="card-content result-container">
+            <pre id="trace-output">Awaiting input...</pre>
         </div>
     </section>
-
+</div>
 <div class="tool-grid">
     <section class="card">
         <div class="card-sidebar">
