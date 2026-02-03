@@ -43,10 +43,12 @@
         </style>
     </head>
     <body>
-        <header>
-            <h1><a href='/'>AnchorPoint IT</a></h1>
-            <nav>Dashboard</nav>
-        </header>
+<head>
+        <meta charset='utf-8'>
+        <title>{{template "title" .}} - AnchorPoint IT</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    </head>
         <div class="container">
             <main>
                 {{template "main" .}}

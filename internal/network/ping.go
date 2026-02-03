@@ -37,10 +37,15 @@ func Ping(host string) bool {
 func Traceroute(host string) (string, error) {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
+		// -d prevents DNS lookups on Windows
 		cmd = exec.Command("tracert", "-d", host)
 	} else {
-		cmd = exec.Command("traceroute", "-n", host)
+		// -n: No DNS (Speed)
+		// -w 1: 1 second timeout per hop
+		// -q 1: Only 1 probe per hop instead of 3 (Efficiency)
+		cmd = exec.Command("traceroute", "-n", "-w", "1", "-q", "1", "-I", host)
 	}
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), err

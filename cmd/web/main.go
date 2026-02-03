@@ -1,26 +1,42 @@
 package main
 
 import (
+	"encoding/json"
 	"html/template"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"anchorpoint-it.com/webapp/internal/network"
 	"anchorpoint-it.com/webapp/internal/system"
 )
 
+// templateData holds the initial state for the HTML dashboard
 type templateData struct {
 	GatewayStatus    string
 	MemoryUsage      string
 	DockerContainers string
-	ClientIP         string // The user's IP
-	ServerPublicIP   string // YOUR external IP
+	ClientIP         string
+	ServerPublicIP   string
 	PingResult       string
 	TraceResult      string
 	MTRResult        string
+}
+
+// HopGeo represents coordinates for a single network hop
+type HopGeo struct {
+	IP  string  `json:"ip"`
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+// DiagResponse is the JSON payload sent back to the browser
+type DiagResponse struct {
+	Output string   `json:"output"`
+	Coords []HopGeo `json:"coords"`
 }
 
 type application struct {
@@ -29,24 +45,20 @@ type application struct {
 }
 
 func main() {
-	// 1. Open the log file
 	f, err := os.OpenFile("info.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 
-	// 2. Initialize loggers using the file
 	infoLog := log.New(f, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(f, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	// 3. Initialize application struct
 	app := &application{
 		errorLog: errorLog,
 		infoLog:  infoLog,
 	}
 
-	// 4. Get port from environment or default
 	port := os.Getenv("APP_PORT")
 	if port == "" {
 		port = "4000"
@@ -55,7 +67,6 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", app.home)
 
-	// 5. Wrap with middleware
 	standardMiddleware := app.recoverPanic(app.logRequest(mux))
 
 	srv := &http.Server{
@@ -64,7 +75,7 @@ func main() {
 		Handler:      standardMiddleware,
 		IdleTimeout:  2 * time.Minute,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 2 * time.Minute, // Bumped to 30s
+		WriteTimeout: 2 * time.Minute, // Sufficient for MTR cycles
 	}
 
 	app.infoLog.Printf("Starting AnchorPoint IT on %s", srv.Addr)
@@ -78,6 +89,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Identify client IP
 	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
 		clientIP = proxyIP
@@ -104,9 +116,9 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Variable to hold the specific result for this request
 		var currentResult string
 
+		// Process specific tool results
 		if ip := r.PostForm.Get("ping_ip"); ip != "" {
 			if network.Ping(ip) {
 				currentResult = ip + " is reachable."
@@ -114,9 +126,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 				currentResult = ip + " is unreachable."
 			}
 			data.PingResult = currentResult
-		}
-
-		if ip := r.PostForm.Get("trace_ip"); ip != "" {
+		} else if ip := r.PostForm.Get("trace_ip"); ip != "" {
 			res, err := network.Traceroute(ip)
 			if err != nil {
 				currentResult = err.Error()
@@ -124,9 +134,7 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 				currentResult = res
 			}
 			data.TraceResult = currentResult
-		}
-
-		if ip := r.PostForm.Get("mtr_ip"); ip != "" {
+		} else if ip := r.PostForm.Get("mtr_ip"); ip != "" {
 			res, err := network.MTR(ip)
 			if err != nil {
 				currentResult = err.Error()
@@ -136,17 +144,31 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			data.MTRResult = currentResult
 		}
 
-		// --- NEW AJAX LOGIC START ---
-		// If the request asks for text/plain (from our JS Fetch),
-		// return ONLY the result and stop here.
-		if r.Header.Get("Accept") == "text/plain" {
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(currentResult))
+		// AJAX Interceptor for the Spinner and Map
+		if r.Header.Get("Accept") == "application/json" {
+			ips := extractIPs(currentResult)
+			var coords []HopGeo
+			for _, ip := range ips {
+				if ip != "127.0.0.1" && ip != "0.0.0.0" {
+					geo := getGeo(ip)
+					if geo.Lat != 0 || geo.Lon != 0 {
+						coords = append(coords, geo)
+					}
+				}
+			}
+
+			resp := DiagResponse{
+				Output: currentResult,
+				Coords: coords,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
 			return
 		}
-		// --- NEW AJAX LOGIC END ---
 	}
 
+	// Rendering logic for initial page load
 	files := []string{
 		"./web/html/home.page.tmpl",
 		"./web/html/base.layout.tmpl",
@@ -165,10 +187,29 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getGeo fetches coordinates for an IP with a 2-second timeout
+func getGeo(ip string) HopGeo {
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://ip-api.com/json/" + ip)
+	if err != nil {
+		return HopGeo{IP: ip}
+	}
+	defer resp.Body.Close()
+
+	var geo HopGeo
+	json.NewDecoder(resp.Body).Decode(&geo)
+	return geo
+}
+
+// extractIPs parses network diagnostic text for IPv4 addresses
+func extractIPs(text string) []string {
+	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+	return re.FindAllString(text, -1)
+}
+
 func (app *application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		app.infoLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -182,7 +223,6 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 		}()
-
 		next.ServeHTTP(w, r)
 	})
 }

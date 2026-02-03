@@ -101,6 +101,16 @@
 
 <section class="card" style="margin-bottom: 2rem;">
     <div class="card-sidebar" style="width: 200px;">
+        <h3>Path Visualization</h3>
+        <p>Geographic route of the last diagnostic.</p>
+    </div>
+    <div class="card-content">
+        <div id="map" style="height: 350px; background: #eee; border-radius: 8px;"></div>
+    </div>
+</section>
+
+<section class="card" style="margin-bottom: 2rem;">
+    <div class="card-sidebar" style="width: 200px;">
         <h3>Docker Host</h3>
         <p>Active containers on this Debian node.</p>
     </div>
@@ -162,23 +172,25 @@
     </div>
 
 <script>
+let map = L.map('map').setView([39.3114, -94.9225], 4); // Centered on Leavenworth, KS
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
 async function runDiagnostic(type) {
-    const ip = document.getElementById(type + '_ip').value;
-    const output = document.getElementById(type + '-output');
-    const status = document.getElementById(type + '-status');
+    // ... setup logic ...
+    const response = await fetch('/', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json' // Ask for JSON now
+        },
+        body: new URLSearchParams({ [type + '_ip']: ip })
+    });
 
-    if (!ip) return;
-
-    // Persist old result until new one starts, then clear
-    output.textContent = "Requesting new data...";
-    status.style.display = "block";
-
-    try {
-        const response = await fetch('/', {
-            method: 'POST',
-            headers: { 
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Accept': 'text/plain' 
+    const data = await response.json();
+    output.textContent = data.output; // Set the text results
+    
+    // Clear old map markers and draw new ones
+    updateMap(data.coords);
 },
             body: new URLSearchParams({ [type + '_ip']: ip })
         });
@@ -194,6 +206,44 @@ async function runDiagnostic(type) {
         status.style.display = "none";
         output.textContent = "Error: " + err;
     }
+}
+
+let markers = [];
+let polyline = null;
+
+function updateMap(coords) {
+    // 1. Remove existing markers and lines
+    markers.forEach(m => map.removeLayer(m));
+    if (polyline) map.removeLayer(polyline);
+    markers = [];
+
+    if (!coords || coords.length === 0) return;
+
+    const latLngs = [];
+
+    // 2. Create markers for each hop
+    coords.forEach((c, index) => {
+        const point = [c.lat, c.lon];
+        latLngs.push(point);
+
+        const marker = L.circleMarker(point, {
+            radius: 5,
+            fillColor: index === coords.length - 1 ? "#ff0000" : "#0056b3",
+            color: "#fff",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(map).bindPopup(`Hop ${index + 1}: ${c.ip}`);
+        
+        markers.push(marker);
+    });
+
+    // 3. Draw the path line
+    polyline = L.polyline(latLngs, {color: '#0056b3', weight: 2, dashArray: '5, 10'}).addTo(map);
+
+    // 4. Zoom to fit the whole path
+    const group = new L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.1));
 }
 </script>
 {{end}}
