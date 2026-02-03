@@ -64,25 +64,19 @@ func MTR(host string) (string, error) {
 	return sanitize(string(out)), nil
 }
 
-// RunSpeedtest executes the speedtest-cli utility in simple mode
-func RunSpeedtest() (string, error) {
-	// --simple returns only Ping, Download, and Upload values
-	cmd := exec.Command("speedtest-cli", "--simple")
+// RunIperf ensures we are the client pushing to a remote destination
+func RunIperf(server string) (string, error) {
+	// -c: Client mode | -t 10: 10 second test | -R: Reverse mode (server sends, we receive)
+	// Adding -R allows you to test the "Download" path to your VPS
+	cmd := exec.Command("iperf3", "-c", server, "-t", "10", "-f", "m", "-R")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(out), err
-	}
-	return string(out), nil
+	return string(out), err
 }
 
-// RunIperf executes iPerf3 in client mode for a 10-second throughput test
-func RunIperf(server string) (string, error) {
-	// -c: client mode | -t 10: 10 second duration | -f m: format in Megabits
-	cmd := exec.Command("iperf3", "-c", server, "-t", "10", "-f", "m")
+// RunSpeedtest performs a full bi-directional bandwidth test
+func RunSpeedtest() (string, error) {
+	// No extra flags needed for reverse; speedtest-cli tests both ways by default
+	cmd := exec.Command("speedtest-cli", "--simple")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(out), err
-	}
-	// Note: We don't sanitize here to keep the iPerf table formatting
-	return string(out), nil
+	return string(out), err
 }

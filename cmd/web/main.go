@@ -258,10 +258,10 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 }
 
 func (app *application) getLogs(filename string) string {
-	// Read the entire file
-	content, err := os.ReadFile(filename)
+	// Attempting to read from the current working directory
+	content, err := os.ReadFile("./" + filename)
 	if err != nil {
-		return "Error reading logs: " + err.Error()
+		return "Log Error: " + err.Error() // This will show you the exact path error in the UI
 	}
 
 	// Split into lines
