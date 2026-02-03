@@ -109,16 +109,30 @@
     </div>
 </section>
 
-<section class="card" style="margin-bottom: 2rem;">
-    <div class="card-sidebar" style="width: 200px;">
-        <h3>Docker Host</h3>
-        <p>Active containers on this node.</p>
-        <button onclick="refreshDocker()" style="width: auto; padding: 5px 10px;">Refresh Status</button>
-    </div>
-    <div class="card-content">
-        <pre id="docker-output">{{.DockerContainers}}</pre>
-    </div>
-</section>
+<div class="status-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+    
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>Docker Host</h3>
+            <p>Active containers.</p>
+            <button onclick="refreshDocker()">Refresh</button>
+        </div>
+        <div class="card-content">
+            <pre id="docker-output" style="height: 200px; overflow-y: auto;">{{.DockerContainers}}</pre>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-sidebar">
+            <h3>System Logs</h3>
+            <p>Recent activity.</p>
+            <button onclick="refreshLogs()">Refresh</button>
+        </div>
+        <div class="card-content">
+            <pre id="log-output" style="background: #1e1e1e; color: #00ff00; height: 200px; overflow-y: auto;">Awaiting logs...</pre>
+        </div>
+    </section>
+</div>
 
 <div class="tool-grid">
     <section class="card">
@@ -211,43 +225,51 @@
     let markers = [];
     let polyline = null;
 
-    async function runDiagnostic(type) {
+async function runDiagnostic(type) {
     const inputField = document.getElementById(type + '_ip');
-    // Logical Check: If the field exists, get the value; otherwise, default to empty string
-    const ip = inputField ? inputField.value : ""; 
-    
     const output = document.getElementById(type + '-output');
     const status = document.getElementById(type + '-status');
 
-    // Only require an IP for tools that actually have an input field
-    if (type !== 'speedtest' && !ip) {
+    // Logical Check: Speedtest doesn't need an input, but others do
+    if (type !== 'speedtest' && (!inputField || !inputField.value)) {
         alert("Please enter a target IP or hostname.");
         return;
     }
 
+    const ip = inputField ? inputField.value : "";
     output.textContent = "Requesting new data...";
     status.style.display = "block";
 
-        try {
-            const response = await fetch('/', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json' 
-                },
-                body: new URLSearchParams({ [type + '_ip']: ip })
-            });
-
-            const data = await response.json();
-            output.textContent = data.output;
-            status.style.display = "none";
-            
-            updateMap(data.coords);
-        } catch (err) {
-            status.style.display = "none";
-            output.textContent = "Error: " + err;
-        }
+    let bodyData = new URLSearchParams();
+    if (type === 'speedtest') {
+        bodyData.append('speedtest_run', 'true'); // Matches the Go .Has check
+    } else {
+        bodyData.append(type + '_ip', ip);
     }
+
+    try {
+        const response = await fetch('/', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json' 
+            },
+            body: bodyData
+        });
+
+        const data = await response.json();
+        output.textContent = data.output;
+        status.style.display = "none";
+        
+        // Only update the map if coordinates were returned
+        if (data.coords && data.coords.length > 0) {
+            updateMap(data.coords);
+        }
+    } catch (err) {
+        status.style.display = "none";
+        output.textContent = "Error: " + err;
+    }
+}
 
     function updateMap(coords) {
         markers.forEach(m => map.removeLayer(m));
