@@ -62,9 +62,9 @@ func main() {
 		Addr:         ":" + port,
 		ErrorLog:     errorLog,
 		Handler:      standardMiddleware,
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 30 * time.Second, // Bumped to 30s to allow MTR to finish
+		IdleTimeout:  2 * time.Minute,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 2 * time.Minute, // Bumped to 30s
 	}
 
 	app.infoLog.Printf("Starting AnchorPoint IT on %s", srv.Addr)
@@ -78,28 +78,24 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Identify Client IP first
 	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
 		clientIP = proxyIP
 	}
 
-	// 2. Determine Gateway Status BEFORE creating the struct
 	status := "Offline"
 	if network.Ping("8.8.8.8") {
 		status = "Online"
 	}
 
-	// 3. Initialize the data struct with all "guts" ready
 	data := &templateData{
-		GatewayStatus:    status, // Fixed: status is now defined
+		GatewayStatus:    status,
 		MemoryUsage:      system.GetMemStats(),
 		DockerContainers: system.GetDockerContainers(),
 		ClientIP:         clientIP,
 		ServerPublicIP:   network.GetPublicIP(),
 	}
 
-	// 4. Handle Form Submissions (updates 'data' if POST)
 	if r.Method == http.MethodPost {
 		err := r.ParseForm()
 		if err != nil {
@@ -108,34 +104,49 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Variable to hold the specific result for this request
+		var currentResult string
+
 		if ip := r.PostForm.Get("ping_ip"); ip != "" {
 			if network.Ping(ip) {
-				data.PingResult = ip + " is reachable."
+				currentResult = ip + " is reachable."
 			} else {
-				data.PingResult = ip + " is unreachable."
+				currentResult = ip + " is unreachable."
 			}
+			data.PingResult = currentResult
 		}
 
 		if ip := r.PostForm.Get("trace_ip"); ip != "" {
 			res, err := network.Traceroute(ip)
 			if err != nil {
-				data.TraceResult = err.Error()
+				currentResult = err.Error()
 			} else {
-				data.TraceResult = res
+				currentResult = res
 			}
+			data.TraceResult = currentResult
 		}
 
 		if ip := r.PostForm.Get("mtr_ip"); ip != "" {
 			res, err := network.MTR(ip)
 			if err != nil {
-				data.MTRResult = err.Error()
+				currentResult = err.Error()
 			} else {
-				data.MTRResult = res
+				currentResult = res
 			}
+			data.MTRResult = currentResult
 		}
+
+		// --- NEW AJAX LOGIC START ---
+		// If the request asks for text/plain (from our JS Fetch),
+		// return ONLY the result and stop here.
+		if r.Header.Get("Accept") == "text/plain" {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte(currentResult))
+			return
+		}
+		// --- NEW AJAX LOGIC END ---
 	}
 
-	// 5. Render the page
 	files := []string{
 		"./web/html/home.page.tmpl",
 		"./web/html/base.layout.tmpl",

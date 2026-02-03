@@ -64,6 +64,29 @@
         margin: 0;
         white-space: pre-wrap;
     }
+/* The Spinner CSS */
+    .loader {
+        width: 18px;
+        height: 18px;
+        border: 2px solid #61dafb;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        animation: rotation 1s linear infinite;
+        vertical-align: middle;
+        margin-right: 10px;
+    }
+    @keyframes rotation {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .status-msg {
+        display: none;
+        color: #61dafb;
+        font-size: 0.9rem;
+        margin-top: 10px;
+    }
+    .result-container { min-height: 50px; }
 </style>
 
 <div class="hero">
@@ -115,18 +138,55 @@
         </div>
     </section>
 
+<div class="tool-grid">
     <section class="card">
         <div class="card-sidebar">
             <h3>MTR Report</h3>
             <p>Full path analysis with packet loss metrics.</p>
-            <form method="POST">
-                <input type="text" name="mtr_ip" placeholder="1.1.1.1" required>
-                <button type="submit">Generate MTR</button>
-            </form>
+            <input type="text" id="mtr_ip" placeholder="1.1.1.1" required>
+            <button onclick="runDiagnostic('mtr')">Generate MTR</button>
+            
+            <div id="mtr-status" class="status-msg">
+                <span class="loader"></span> Analyzing network path...
+            </div>
         </div>
-        <div class="card-content">
-            {{if .MTRResult}}<pre>{{.MTRResult}}</pre>{{else}}<p>Awaiting input...</p>{{end}}
+        <div class="card-content result-container">
+            <pre id="mtr-output">Awaiting input...</pre>
         </div>
     </section>
-</div>
+    
+    </div>
+
+<script>
+async function runDiagnostic(type) {
+    const ip = document.getElementById(type + '_ip').value;
+    const output = document.getElementById(type + '-output');
+    const status = document.getElementById(type + '-status');
+
+    if (!ip) return;
+
+    // Persist old result until new one starts, then clear
+    output.textContent = "Requesting new data...";
+    status.style.display = "block";
+
+    try {
+        const response = await fetch('/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ [type + '_ip']: ip })
+        });
+
+        const result = await response.text();
+        
+        // Hide spinner and update persistent output
+        status.style.display = "none";
+        // Extracting just the PRE content from the returned HTML if necessary
+        // Or simply setting the result if your Go backend returns just the string
+        output.textContent = result;
+    } catch (err) {
+        status.style.display = "none";
+        output.textContent = "Error: " + err;
+    }
+}
+</script>
 {{end}}
