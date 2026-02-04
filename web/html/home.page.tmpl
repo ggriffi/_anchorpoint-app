@@ -3,14 +3,14 @@
 {{define "title"}}Network Utility Belt{{end}}
 
 {{define "main"}}
-<div class="card" style="padding: 0; overflow: hidden;">
+<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 24px;">
     <div style="padding: 15px; border-bottom: 1px solid var(--border); background: #fdfdfd;">
         <h3 style="margin: 0; font-size: 1rem;">Network Path Visualization</h3>
     </div>
     <div id="map" style="height: 400px; background: #eee;"></div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; margin-bottom: 24px;">
     <div class="card" style="padding: 20px;">
         <h3 style="margin-top: 0;">Diagnostic Tools</h3>
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
@@ -32,8 +32,28 @@
     </div>
 </div>
 
-<div id="logs" class="status-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
-    </div>
+<div id="logs" class="status-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    
+    <section class="card" style="display: flex; flex-direction: row; height: 300px; overflow: hidden;">
+        <div style="flex: 0 0 160px; padding: 20px; border-right: 1px solid var(--border); background: #f8fafc;">
+            <h3 style="margin: 0; font-size: 1rem;">Docker Host</h3>
+            <button onclick="refreshDocker()" style="width: 100%; margin-top: 15px; padding: 8px; cursor: pointer;">Refresh</button>
+        </div>
+        <div style="flex-grow: 1; background: #f4f4f4; padding: 15px; overflow-y: auto;">
+            <pre id="docker-output" style="margin: 0; font-size: 0.8rem; white-space: pre-wrap;">{{.DockerContainers}}</pre>
+        </div>
+    </section>
+
+    <section class="card" style="display: flex; flex-direction: row; height: 300px; overflow: hidden;">
+        <div style="flex: 0 0 160px; padding: 20px; border-right: 1px solid var(--border); background: #f8fafc;">
+            <h3 style="margin: 0; font-size: 1rem;">System Logs</h3>
+            <button onclick="refreshLogs()" style="width: 100%; margin-top: 15px; padding: 8px; cursor: pointer;">Refresh</button>
+        </div>
+        <div style="flex-grow: 1; background: #1e1e1e; padding: 15px; overflow-y: auto;">
+            <pre id="log-output" style="margin: 0; color: #4ade80; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: pre-wrap;">Awaiting logs...</pre>
+        </div>
+    </section>
+</div>
 
 <script>
     // 1. Declare Global Variables at the top to avoid initialization errors
