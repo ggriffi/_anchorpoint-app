@@ -129,21 +129,14 @@ pre {
     </div>
 </div>
 
-    <div class="main-container">
-        <header class="app-header">
-            <div>
-                <strong>Gateway:</strong> {{.ServerPublicIP}} 
-                <span class="status-pill status-online">System Ready</span>
-            </div>
-            <div style="font-size: 0.9rem; color: #64748b;">
-                {{.ClientIP}} | Mem: {{.MemoryUsage}}
-            </div>
+<div class="main-container">
+    <header class="app-header">
         </header>
 
-        <main style="padding: 30px;">
-            {{template "main" .}}
-        </main>
-    </div>
+    <main style="padding: 30px;">
+        {{template "main" .}}
+    </main>
+</div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
