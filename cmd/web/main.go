@@ -15,6 +15,7 @@ import (
 	"anchorpoint-it.com/webapp/internal/network"
 	"anchorpoint-it.com/webapp/internal/system"
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type templateData struct {
@@ -211,24 +212,30 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	username := r.PostForm.Get("username")
 	password := r.PostForm.Get("password")
 
-	var dbPassword string
-	err := app.db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&dbPassword)
+	var hashedPassword string
+	// Retrieve the hashed password from the DB
+	err := app.db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&hashedPassword)
 
-	// Direct password check (Upgrade to bcrypt later)
-	if err == nil && password == dbPassword {
-		cookie := &http.Cookie{
-			Name:     "authenticated",
-			Value:    "true",
-			Path:     "/",
-			HttpOnly: true,
-			MaxAge:   86400, // 24 hours
+	// Verify the password using Bcrypt
+	// bcrypt.CompareHashAndPassword returns nil on success
+	if err == nil {
+		err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+		if err == nil {
+			cookie := &http.Cookie{
+				Name:     "authenticated",
+				Value:    "true",
+				Path:     "/",
+				HttpOnly: true,
+				MaxAge:   86400, // 24 hours
+			}
+			http.SetCookie(w, cookie)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
 		}
-		http.SetCookie(w, cookie)
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
 	}
 
-	// Fail: Redirect back to login
+	// Fail: Redirect back to login with error parameter
+	app.infoLog.Printf("Failed login attempt for user: %s", username)
 	http.Redirect(w, r, "/login?error=1", http.StatusSeeOther)
 }
 
@@ -241,11 +248,18 @@ func (app *application) bootstrapRootUser() {
 	}
 
 	if !exists {
-		_, err := app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "admin", "changeme123")
+		// Generate a Bcrypt hash with a cost of 12
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("changeme123"), 12)
+		if err != nil {
+			app.errorLog.Println("Failed to hash bootstrap password:", err)
+			return
+		}
+
+		_, err = app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "admin", string(hashedPassword))
 		if err != nil {
 			app.errorLog.Println("Failed to create root user:", err)
 		} else {
-			app.infoLog.Println("Root user 'admin' created with password 'changeme123'")
+			app.infoLog.Println("Hashed root user 'admin' created successfully.")
 		}
 	}
 }

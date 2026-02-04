@@ -6,7 +6,7 @@ COPY go.mod ./
 # COPY go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o anchorpoint-app ./cmd/web
+RUN CGO_ENABLED=1 GOOS=linux go build -o anchorpoint-app ./cmd/web
 
 # Stage 2: Final image
 FROM debian:bookworm-slim
