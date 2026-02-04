@@ -35,24 +35,34 @@
 <div id="logs" class="status-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
     </div>
 
-    <script>
-    // 1. App State & Map Initialization
-    let map = L.map('map').setView([39.3114, -94.9225], 4);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+<script>
+    // 1. Declare Global Variables at the top to avoid initialization errors
+    let map;
     let markers = [];
     let polyline = null;
+    let resourceChart;
 
-    /**
-     * Unified Diagnostic Runner
-     * Handles Ping, Trace, MTR, iPerf, and Speedtest.
-     */
+    // 2. Initialize App Components once the DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        // Map Setup
+        map = L.map('map').setView([39.3114, -94.9225], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Resource Monitor Setup
+        initChart();
+        setInterval(updateStats, 5000); // Poll backend every 5 seconds
+
+        // Initial Data Fetch
+        refreshLogs();
+        refreshDocker();
+    });
+
+    /** Diagnostic Runner */
     async function runNewDiag(type) {
-        // We now use a single unified input for all network-based tools
         const inputField = document.getElementById('diag_ip');
         const output = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
         const targetIP = inputField ? inputField.value.trim() : "";
 
-        // Validation logic: Speedtest is local, others need a target
         if (type !== 'speedtest' && !targetIP) {
             alert("Please enter a target IP or hostname for " + type.toUpperCase());
             return;
@@ -61,11 +71,7 @@
         output.textContent = ">> Executing " + type.toUpperCase() + "...\n";
         
         let bodyData = new URLSearchParams();
-        if (type === 'speedtest') {
-            bodyData.append('speedtest_run', 'true');
-        } else {
-            bodyData.append(type + '_ip', targetIP);
-        }
+        type === 'speedtest' ? bodyData.append('speedtest_run', 'true') : bodyData.append(type + '_ip', targetIP);
 
         try {
             const response = await fetch('/', {
@@ -73,123 +79,85 @@
                 headers: { 'Accept': 'application/json' },
                 body: bodyData
             });
-
-            if (!response.ok) throw new Error("Server responded with " + response.status);
-
             const data = await response.json();
             output.textContent = data.output;
-
-            // Update map if the tool returned geographic hops
-            if (data.coords && data.coords.length > 0) {
-                updateMap(data.coords);
-            }
+            if (data.coords) updateMap(data.coords);
         } catch (err) {
-            output.textContent = "FATAL ERROR: " + err.message;
+            output.textContent = "Error: " + err;
         }
     }
 
-    /** * System Status Helpers
-     */
+    /** System Helpers */
+    async function refreshLogs() {
+        const output = document.getElementById('log-output');
+        if (!output) return; // Prevent errors if element is missing
+        try {
+            const response = await fetch('/?refresh=logs');
+            output.textContent = await response.text();
+            output.scrollTop = output.scrollHeight;
+        } catch (err) { output.textContent = "Log Error: " + err; }
+    }
+
     async function refreshDocker() {
         const output = document.getElementById('docker-output');
-        output.textContent = "Querying Docker daemon...";
+        if (!output) return;
         try {
             const response = await fetch('/?refresh=docker');
             output.textContent = await response.text();
         } catch (err) { output.textContent = "Docker Error: " + err; }
     }
 
-    async function refreshLogs() {
-        const output = document.getElementById('log-output');
-        output.textContent = "Tailing /app/info.log...";
-        try {
-            const response = await fetch('/?refresh=logs');
-            output.textContent = await response.text();
-            output.scrollTop = output.scrollHeight; // Auto-scroll to latest entries
-        } catch (err) { output.textContent = "Log Error: " + err; }
+    /** Resource Monitor Logic */
+    function initChart() {
+        const ctx = document.getElementById('resourceChart').getContext('2d');
+        resourceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(10).fill(''),
+                datasets: [{
+                    label: 'Memory %',
+                    data: Array(10).fill(0),
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { beginAtZero: true, max: 100, ticks: { display: false }, grid: { display: false } }
+                }
+            }
+        });
     }
 
-    /**
-     * Path Visualization Logic
-     */
+    async function updateStats() {
+        try {
+            const response = await fetch('/?refresh=stats');
+            const data = await response.json();
+            resourceChart.data.datasets[0].data.shift();
+            resourceChart.data.datasets[0].data.push(data.memPercent);
+            resourceChart.update('none');
+        } catch (err) { console.error("Stats fail", err); }
+    }
+
+    /** Path Visualization */
     function updateMap(coords) {
         markers.forEach(m => map.removeLayer(m));
         if (polyline) map.removeLayer(polyline);
         markers = [];
-        
         const latLngs = coords.map(c => [c.lat, c.lon]);
-        coords.forEach((c) => {
-            const m = L.circleMarker([c.lat, c.lon], {
-                radius: 6, 
-                color: '#2563eb', 
-                fillOpacity: 0.8
-            }).addTo(map).bindPopup("Hop: " + c.ip);
+        coords.forEach(c => {
+            const m = L.circleMarker([c.lat, c.lon], {radius: 5, color: '#2563eb'}).addTo(map);
             markers.push(m);
         });
-
-        polyline = L.polyline(latLngs, {
-            color: '#2563eb', 
-            weight: 3, 
-            dashArray: '5, 10'
-        }).addTo(map);
-
-        if (markers.length > 0) {
-            map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
-        }
+        polyline = L.polyline(latLngs, {color: '#2563eb', weight: 2, dashArray: '5, 10'}).addTo(map);
+        if (markers.length > 0) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
     }
-// Global chart instance
-let resourceChart;
-
-function initChart() {
-    const ctx = document.getElementById('resourceChart').getContext('2d');
-    resourceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: Array(10).fill(''), // Last 10 data points
-            datasets: [{
-                label: 'Memory Usage (%)',
-                data: Array(10).fill(0),
-                borderColor: '#60a5fa',
-                backgroundColor: 'rgba(96, 165, 250, 0.2)',
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { display: false },
-                y: { 
-                    beginAtZero: true, 
-                    max: 100,
-                    grid: { color: '#334155' },
-                    ticks: { color: '#94a3b8', font: { size: 10 } }
-                }
-            }
-        }
-    });
-}
-
-// Polling function to get live data
-async function updateStats() {
-    try {
-        const response = await fetch('/?refresh=stats'); // We'll add this case to Go
-        const data = await response.json();
-        
-        // Update Chart
-        resourceChart.data.datasets[0].data.shift();
-        resourceChart.data.datasets[0].data.push(data.memPercent);
-        resourceChart.update('none'); // Update without animation for performance
-        
-    } catch (err) { console.error("Stats poll failed", err); }
-}
-
-// Start monitoring
-initChart();
-setInterval(updateStats, 5000);
-    </script>
+</script>
 {{end}}
