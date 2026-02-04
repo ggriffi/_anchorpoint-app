@@ -80,26 +80,25 @@
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h2 style="color: #60a5fa; margin-bottom: 30px;">Anchorpoint-IT</h2>
-        <nav style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">Diagnostics</div>
-            <a href="#" style="color: white; text-decoration: none;">Dashboard</a>
-            <a href="#map" style="color: #94a3b8; text-decoration: none;">Path Visualization</a>
-            <div style="margin-top: 20px; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">System</div>
-            <a href="#logs" style="color: #94a3b8; text-decoration: none;">Server Logs</a>
-            <div class="sidebar">
-    <h2 style="color: #60a5fa; margin-bottom: 30px;">Anchorpoint-IT</h2>
-    <nav style="display: flex; flex-direction: column; gap: 10px;">
-        </nav>
+<div class="sidebar" style="display: flex; flex-direction: column; height: 100vh; background: #1e293b; color: white; width: 260px; padding: 20px; box-sizing: border-box;">
+    <h2 style="color: #60a5fa; margin-bottom: 30px; font-family: 'Inter', sans-serif;">Anchorpoint-IT</h2>
+    
+    <nav style="display: flex; flex-direction: column; gap: 12px; flex-grow: 1;">
+        <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Diagnostics</div>
+        <a href="/" style="color: white; text-decoration: none; font-weight: 600;">Dashboard</a>
+        <a href="#map" style="color: #94a3b8; text-decoration: none;">Path Visualization</a>
+        
+        <div style="margin-top: 20px; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">System</div>
+        <a href="#logs" style="color: #94a3b8; text-decoration: none;">Server Logs</a>
+    </nav>
 
-    <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #334155;">
+    <div style="padding-top: 20px; border-top: 1px solid #334155;">
         <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 10px;">Resource Monitor</div>
-        <canvas id="resourceChart" style="max-height: 150px;"></canvas>
+        <div style="height: 120px; width: 100%;">
+            <canvas id="resourceChart"></canvas>
+        </div>
     </div>
 </div>
-        </nav>
-    </div>
 
     <div class="main-container">
         <header class="app-header">
