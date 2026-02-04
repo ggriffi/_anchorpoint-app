@@ -311,9 +311,17 @@ func (app *application) requireAuthentication(next http.Handler) http.Handler {
 func (app *application) isAuthenticated(r *http.Request) bool {
 	cookie, err := r.Cookie("authenticated")
 	if err != nil {
+		// This log will now show up in your dashboard's log view
+		app.infoLog.Printf("Auth Check: No cookie found for path %s", r.URL.Path)
 		return false
 	}
-	return cookie.Value == "true"
+
+	if cookie.Value != "true" {
+		app.infoLog.Printf("Auth Check: Invalid cookie value: %s", cookie.Value)
+		return false
+	}
+
+	return true
 }
 
 func (app *application) getLogs() string {
@@ -321,16 +329,23 @@ func (app *application) getLogs() string {
 	if err != nil {
 		return "Log Error: " + err.Error()
 	}
+
 	lines := strings.Split(string(content), "\n")
 	var cleanLines []string
+
 	for _, line := range lines {
 		if strings.TrimSpace(line) != "" {
 			cleanLines = append(cleanLines, line)
 		}
 	}
-	if len(cleanLines) > 20 {
-		cleanLines = cleanLines[len(cleanLines)-20:]
+
+	// Increased from 20 to 100 to provide better visibility
+	// into auth redirects and errors
+	limit := 100
+	if len(cleanLines) > limit {
+		cleanLines = cleanLines[len(cleanLines)-limit:]
 	}
+
 	return strings.Join(cleanLines, "\n")
 }
 
