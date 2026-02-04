@@ -187,14 +187,26 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		ts, _ := template.ParseFiles("./web/html/login.page.tmpl", "./web/html/base.layout.tmpl")
+		// 1. Define files
+		files := []string{
+			"./web/html/login.page.tmpl",
+			"./web/html/base.layout.tmpl",
+		}
+
+		// 2. Parse and CHECK FOR ERRORS
+		ts, err := template.ParseFiles(files...)
+		if err != nil {
+			app.errorLog.Printf("Template Error: %v", err)
+			http.Error(w, "Internal Server Error - Missing Templates", 500)
+			return
+		}
+
+		// 3. Execute
 		ts.Execute(w, nil)
 		return
 	}
 
-	// Logic for POST login
 	r.ParseForm()
-	// Validation logic would go here (Check DB, bcrypt comparison)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
