@@ -1,5 +1,5 @@
 # Stage 1: Build the binary
-FROM golang:1.22-bookworm AS builder
+FROM golang:1.24-bookworm AS builder
 WORKDIR /app
 COPY go.mod ./
 # If you have a go.sum, uncomment the next line
