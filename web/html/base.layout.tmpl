@@ -1,62 +1,113 @@
 {{define "base"}}
-<!doctype html>
-<html lang='en'>
-    <head>
-        <meta charset='utf-8'>
-        <title>{{template "title" .}} - AnchorPoint IT</title>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
-        <style>
-            :root {
-                --primary-blue: #0056b3;
-                --dark-bg: #1a1a1a;
-                --card-bg: #ffffff;
-                --text-main: #333;
-                --text-muted: #666;
-                --border-color: #e1e4e8;
-            }
-            body {
-                font-family: 'Inter', -apple-system, system-ui, sans-serif;
-                background-color: #f8f9fa;
-                color: var(--text-main);
-                margin: 0;
-                line-height: 1.6;
-            }
-            header {
-                background-color: var(--dark-bg);
-                color: white;
-                padding: 1.5rem 2rem;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 4px solid var(--primary-blue);
-            }
-            header h1 { margin: 0; font-size: 1.5rem; }
-            header h1 a { color: white; text-decoration: none; }
-            .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
-            footer {
-                text-align: center;
-                padding: 2rem;
-                color: var(--text-muted);
-                font-size: 0.9rem;
-                border-top: 1px solid var(--border-color);
-            }
-        </style>
-    </head>
-    <body>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-        <meta charset='utf-8'>
-        <title>{{template "title" .}} - AnchorPoint IT</title>
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    </head>
-        <div class="container">
-            <main>
-                {{template "main" .}}
-            </main>
-        </div>
-        <footer>
-            &copy; 2026 AnchorPoint IT - Grounded IT for Leavenworth, KS
-        </footer>
-    </body>
+    <meta charset="UTF-8">
+    <title>Anchorpoint-IT | Network Suite</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --sidebar-bg: #1e293b;
+            --card-bg: #ffffff;
+            --primary: #2563eb;
+            --text-main: #334155;
+            --border: #e2e8f0;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Fixed Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .main-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Application Header */
+        .app-header {
+            background: white;
+            padding: 15px 30px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        /* Refined Card Styling */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+
+        pre {
+            font-family: 'JetBrains Mono', monospace;
+            border-radius: 4px;
+        }
+
+        .status-pill {
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .status-online { background: #dcfce7; color: #166534; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2 style="color: #60a5fa; margin-bottom: 30px;">Anchorpoint-IT</h2>
+        <nav style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">Diagnostics</div>
+            <a href="#" style="color: white; text-decoration: none;">Dashboard</a>
+            <a href="#map" style="color: #94a3b8; text-decoration: none;">Path Visualization</a>
+            <div style="margin-top: 20px; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">System</div>
+            <a href="#logs" style="color: #94a3b8; text-decoration: none;">Server Logs</a>
+        </nav>
+    </div>
+
+    <div class="main-container">
+        <header class="app-header">
+            <div>
+                <strong>Gateway:</strong> {{.ServerPublicIP}} 
+                <span class="status-pill status-online">System Ready</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #64748b;">
+                {{.ClientIP}} | Mem: {{.MemoryUsage}}
+            </div>
+        </header>
+
+        <main style="padding: 30px;">
+            {{template "main" .}}
+        </main>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</body>
 </html>
 {{end}}
