@@ -341,7 +341,7 @@ func (app *application) getLogs() string {
 
 	// Increased from 20 to 100 to provide better visibility
 	// into auth redirects and errors
-	limit := 100
+	limit := 10
 	if len(cleanLines) > limit {
 		cleanLines = cleanLines[len(cleanLines)-limit:]
 	}
