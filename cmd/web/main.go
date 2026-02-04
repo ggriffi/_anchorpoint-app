@@ -212,6 +212,13 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. If they are already on the login page, let them through!
+		if r.URL.Path == "/login" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// 2. Otherwise, check if they are logged in
 		if !app.isAuthenticated(r) {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
