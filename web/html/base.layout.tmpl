@@ -10,82 +10,113 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <style>
-
-   :root {
-    --bg: #f1f5f9;
-    --sidebar-bg: #0f172a; /* Deep Navy */
-    --card-bg: #ffffff;
-    --primary: #2563eb;    /* Anchorpoint Blue */
-    --accent: #60a5fa;     /* Lighter blue for icons/charts */
-    --text-main: #1e293b;
-    --border: #e2e8f0;
+:root {
+  --bg: #0b1220;
+  --card: rgba(255, 255, 255, 0.06);
+  --stroke: rgba(255, 255, 255, 0.10);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.72);
+  --navy: #0b3a5a;
+  --teal: #2bb0a6;
+  --radius: 16px;
+  --shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
 }
 
-        body {
-            margin: 0;
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-/* Sidebar Branding */
-.sidebar h2 {
-    font-family: 'Inter', sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    /* Mirroring professional tech branding */
-    background: linear-gradient(to right, #60a5fa, #2563eb);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 30% 10%, rgba(43, 176, 166, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 80% 20%, rgba(11, 58, 90, 0.28), transparent 60%),
+    var(--bg);
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
 }
 
-        .main-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
+/* Glassmorphism Sidebar */
+.sidebar {
+  width: 260px;
+  background: rgba(11, 18, 32, 0.8);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--stroke);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
 
-        /* Application Header */
-        .app-header {
-            background: white;
-            padding: 15px 30px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
+.logo {
+  font-weight: 700;
+  color: #fff;
+  font-size: 1.25rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-        /* Refined Card Styling */
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 24px;
-        }
+/* Glass Cards for the Main Dashboard */
+.card {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  padding: 20px;
+}
 
-        pre {
-            font-family: 'JetBrains Mono', monospace;
-            border-radius: 4px;
-        }
+/* Navigation */
+.nav-link {
+  text-decoration: none;
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
 
-        .status-pill {
-            padding: 4px 12px;
-            border-radius: 99px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        .status-online { background: #dcfce7; color: #166534; }
+.nav-link:hover, .nav-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Terminal Outputs */
+pre {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--stroke);
+  color: var(--teal); /* Use the brand teal for terminal text */
+  padding: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 999px; /* Pill shape from your CSS */
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .08s ease, background .12s ease;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--navy), #0e4f73);
+  border-color: rgba(43, 176, 166, 0.45);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.10);
+}
     </style>
 </head>
 <body>
