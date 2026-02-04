@@ -10,14 +10,16 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #f8fafc;
-            --sidebar-bg: #1e293b;
-            --card-bg: #ffffff;
-            --primary: #2563eb;
-            --text-main: #334155;
-            --border: #e2e8f0;
-        }
+
+   :root {
+    --bg: #f1f5f9;
+    --sidebar-bg: #0f172a; /* Deep Navy */
+    --card-bg: #ffffff;
+    --primary: #2563eb;    /* Anchorpoint Blue */
+    --accent: #60a5fa;     /* Lighter blue for icons/charts */
+    --text-main: #1e293b;
+    --border: #e2e8f0;
+}
 
         body {
             margin: 0;
@@ -29,15 +31,19 @@
             overflow: hidden;
         }
 
-        /* Fixed Sidebar */
-        .sidebar {
-            width: 260px;
-            background: var(--sidebar-bg);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
+/* Sidebar Branding */
+.sidebar h2 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    /* Mirroring professional tech branding */
+    background: linear-gradient(to right, #60a5fa, #2563eb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
         .main-container {
             flex-grow: 1;
@@ -83,8 +89,18 @@
     </style>
 </head>
 <body>
-<div class="sidebar" style="display: flex; flex-direction: column; height: 100vh; background: #1e293b; color: white; width: 260px; padding: 20px; box-sizing: border-box;">
-    <h2 style="color: #60a5fa; margin-bottom: 30px; font-family: 'Inter', sans-serif;">Anchorpoint-IT</h2>
+<div class="sidebar">
+    <h2 style="display: flex; align-items: center; gap: 12px; margin-bottom: 30px; font-size: 1.25rem;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
+            <circle cx="12" cy="5" r="3"></circle>
+            <path d="M6.5 8l-4.5 4.5 4.5 4.5"></path>
+            <path d="M17.5 8l4.5 4.5-4.5 4.5"></path>
+            <line x1="12" y1="8" x2="12" y2="21"></line>
+        </svg>
+        <span style="background: linear-gradient(to right, #60a5fa, #2563eb); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Anchorpoint-IT
+        </span>
+    </h2>
     
     <nav style="display: flex; flex-direction: column; gap: 12px; flex-grow: 1;">
         <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Diagnostics</div>
