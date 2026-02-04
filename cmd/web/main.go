@@ -236,6 +236,22 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
+	// Helper function to get the current user list
+	getUsers := func() []string {
+		rows, err := app.db.Query("SELECT username FROM users ORDER BY username ASC")
+		if err != nil {
+			return nil
+		}
+		defer rows.Close()
+		var usernames []string
+		for rows.Next() {
+			var uname string
+			rows.Scan(&uname)
+			usernames = append(usernames, uname)
+		}
+		return usernames
+	}
+
 	if r.Method == http.MethodGet {
 		ts, err := template.ParseFiles("./web/html/settings.page.tmpl", "./web/html/base.layout.tmpl")
 		if err != nil {
@@ -243,7 +259,8 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error", 500)
 			return
 		}
-		ts.Execute(w, nil)
+		// Pass the usernames slice to the template
+		ts.Execute(w, getUsers())
 		return
 	}
 
