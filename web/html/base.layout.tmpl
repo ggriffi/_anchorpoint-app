@@ -33,7 +33,6 @@ body {
   color: var(--text);
   display: flex;
   height: 100vh;
-  overflow: hidden;
 }
 
 /* Glassmorphism Sidebar  */
@@ -88,6 +87,14 @@ pre {
   font-size: 0.85rem;
   border-radius: 8px;
   overflow-x: auto;
+}
+
+.main-container {
+  flex-grow: 1;
+  height: 100vh;
+  overflow-y: auto; /* THIS ENABLES SCROLLING for the content area  */
+  display: flex;
+  flex-direction: column;
 }
     </style>
 </head>
