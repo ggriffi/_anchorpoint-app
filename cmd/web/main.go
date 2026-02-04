@@ -91,6 +91,7 @@ func main() {
 
 	// Protected routes
 	mux.Handle("/", app.requireAuthentication(http.HandlerFunc(app.home)))
+	mux.Handle("/settings", app.requireAuthentication(http.HandlerFunc(app.createUser)))
 
 	standardMiddleware := app.recoverPanic(app.logRequest(mux))
 
@@ -207,17 +208,13 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle POST login
 	r.ParseForm()
 	username := r.PostForm.Get("username")
 	password := r.PostForm.Get("password")
 
 	var hashedPassword string
-	// Retrieve the hashed password from the DB
 	err := app.db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&hashedPassword)
 
-	// Verify the password using Bcrypt
-	// bcrypt.CompareHashAndPassword returns nil on success
 	if err == nil {
 		err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 		if err == nil {
@@ -226,7 +223,7 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 				Value:    "true",
 				Path:     "/",
 				HttpOnly: true,
-				MaxAge:   86400, // 24 hours
+				MaxAge:   86400,
 			}
 			http.SetCookie(w, cookie)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -234,9 +231,42 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fail: Redirect back to login with error parameter
 	app.infoLog.Printf("Failed login attempt for user: %s", username)
 	http.Redirect(w, r, "/login?error=1", http.StatusSeeOther)
+}
+
+func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		ts, err := template.ParseFiles("./web/html/settings.page.tmpl", "./web/html/base.layout.tmpl")
+		if err != nil {
+			app.errorLog.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
+		}
+		ts.Execute(w, nil)
+		return
+	}
+
+	r.ParseForm()
+	username := r.PostForm.Get("username")
+	password := r.PostForm.Get("password")
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		app.errorLog.Println(err)
+		http.Error(w, "Internal Server Error", 500)
+		return
+	}
+
+	_, err = app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, string(hashedPassword))
+	if err != nil {
+		app.errorLog.Println(err)
+		http.Redirect(w, r, "/settings?error=duplicate", http.StatusSeeOther)
+		return
+	}
+
+	app.infoLog.Printf("New user created: %s", username)
+	http.Redirect(w, r, "/settings?success=1", http.StatusSeeOther)
 }
 
 func (app *application) bootstrapRootUser() {
@@ -248,7 +278,6 @@ func (app *application) bootstrapRootUser() {
 	}
 
 	if !exists {
-		// Generate a Bcrypt hash with a cost of 12
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("changeme123"), 12)
 		if err != nil {
 			app.errorLog.Println("Failed to hash bootstrap password:", err)

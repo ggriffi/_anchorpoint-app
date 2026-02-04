@@ -1,0 +1,34 @@
+{{template "base" .}}
+
+{{define "main"}}
+<div style="display: flex; justify-content: center; padding-top: 40px;">
+    <div class="card" style="width: 100%; max-width: 500px; padding: 30px;">
+        <h2 style="color: var(--teal); margin-top: 0;">User Management</h2>
+        <p style="color: var(--muted); margin-bottom: 25px;">Create a new administrative or test account.</p>
+
+        <form action="/settings" method="POST" style="display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">USERNAME</label>
+                <input type="text" name="username" required 
+                       style="background: rgba(0,0,0,0.2); border: 1px solid var(--stroke); border-radius: 8px; padding: 12px; color: white; outline: none;">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">PASSWORD</label>
+                <input type="password" name="password" required 
+                       style="background: rgba(0,0,0,0.2); border: 1px solid var(--stroke); border-radius: 8px; padding: 12px; color: white; outline: none;">
+            </div>
+
+            <button type="submit" class="btn primary" style="height: 45px; margin-top: 10px;">
+                Create User Account
+            </button>
+        </form>
+
+        {{if .}}
+            <div style="margin-top: 20px; padding: 10px; border-radius: 8px; background: rgba(0, 255, 200, 0.1); color: var(--teal); text-align: center;">
+                User created successfully!
+            </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
