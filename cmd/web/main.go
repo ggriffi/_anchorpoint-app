@@ -14,7 +14,7 @@ import (
 
 	"anchorpoint-it.com/webapp/internal/network"
 	"anchorpoint-it.com/webapp/internal/system"
-	_ "github.com/mattn/go-sqlite3" // Ensure you've run 'go get github.com/mattn/go-sqlite3'
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type templateData struct {
@@ -58,14 +58,14 @@ func main() {
 	infoLog := log.New(f, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(f, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	// 1. Initialize Database BEFORE server start
+	// 1. Initialize Database
 	db, err := sql.Open("sqlite3", "./anchorpoint.db")
 	if err != nil {
 		errorLog.Fatal(err)
 	}
 	defer db.Close()
 
-	// Ensure users table exists
+	// 2. Ensure users table exists
 	statement, _ := db.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)")
 	statement.Exec()
 
@@ -74,6 +74,9 @@ func main() {
 		infoLog:  infoLog,
 		db:       db,
 	}
+
+	// 3. Bootstrap the root user
+	app.bootstrapRootUser()
 
 	port := os.Getenv("APP_PORT")
 	if port == "" {
@@ -187,13 +190,11 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		// 1. Define files
 		files := []string{
 			"./web/html/login.page.tmpl",
 			"./web/html/base.layout.tmpl",
 		}
 
-		// 2. Parse and CHECK FOR ERRORS
 		ts, err := template.ParseFiles(files...)
 		if err != nil {
 			app.errorLog.Printf("Template Error: %v", err)
@@ -201,24 +202,61 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// 3. Execute
 		ts.Execute(w, nil)
 		return
 	}
 
+	// Handle POST login
 	r.ParseForm()
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	username := r.PostForm.Get("username")
+	password := r.PostForm.Get("password")
+
+	var dbPassword string
+	err := app.db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&dbPassword)
+
+	// Direct password check (Upgrade to bcrypt later)
+	if err == nil && password == dbPassword {
+		cookie := &http.Cookie{
+			Name:     "authenticated",
+			Value:    "true",
+			Path:     "/",
+			HttpOnly: true,
+			MaxAge:   86400, // 24 hours
+		}
+		http.SetCookie(w, cookie)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// Fail: Redirect back to login
+	http.Redirect(w, r, "/login?error=1", http.StatusSeeOther)
+}
+
+func (app *application) bootstrapRootUser() {
+	var exists bool
+	err := app.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username='admin')").Scan(&exists)
+	if err != nil {
+		app.errorLog.Println("Bootstrap check failed:", err)
+		return
+	}
+
+	if !exists {
+		_, err := app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "admin", "changeme123")
+		if err != nil {
+			app.errorLog.Println("Failed to create root user:", err)
+		} else {
+			app.infoLog.Println("Root user 'admin' created with password 'changeme123'")
+		}
+	}
 }
 
 func (app *application) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. If they are already on the login page, let them through!
 		if r.URL.Path == "/login" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// 2. Otherwise, check if they are logged in
 		if !app.isAuthenticated(r) {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -230,7 +268,7 @@ func (app *application) requireAuthentication(next http.Handler) http.Handler {
 func (app *application) isAuthenticated(r *http.Request) bool {
 	cookie, err := r.Cookie("authenticated")
 	if err != nil {
-		return false // No cookie, not authenticated
+		return false
 	}
 	return cookie.Value == "true"
 }
