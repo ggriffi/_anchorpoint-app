@@ -1,18 +1,24 @@
-# Anchorpoint-IT
-.PHONY: run stop deploy
+# Anchorpoint-IT Management
+.PHONY: run stop deploy logs
 
-## run: Builds and starts the suite via Docker
-run:
-	@echo "Launching Anchorpoint-IT Suite..."
-	docker compose up -d --build
-
-## deploy: Standard update for anchorpoint-it.com
+## deploy: Full update cycle (Pull -> Down -> Build -> Up)
 deploy:
-	@echo "Deploying update to VPS..."
+	@echo "Fetching latest changes from Git..."
+	git pull origin main
+	@echo "Stopping existing Anchorpoint-IT containers..."
 	docker compose down
+	@echo "Building and launching updated suite..."
 	docker compose up -d --build
-	@echo "Update complete."
+	@echo "Anchorpoint-IT is live on anchorpoint-it.com."
 
-## stop: Shuts down services
+## run: Standard launch without a git pull
+run:
+	docker compose up -d --build
+
+## stop: Shuts down the suite
 stop:
 	docker compose down
+
+## logs: Tail the live container logs from the terminal
+logs:
+	docker compose logs -f
