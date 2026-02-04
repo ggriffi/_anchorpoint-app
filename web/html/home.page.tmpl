@@ -137,5 +137,59 @@
             map.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
         }
     }
-</script>
+// Global chart instance
+let resourceChart;
+
+function initChart() {
+    const ctx = document.getElementById('resourceChart').getContext('2d');
+    resourceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array(10).fill(''), // Last 10 data points
+            datasets: [{
+                label: 'Memory Usage (%)',
+                data: Array(10).fill(0),
+                borderColor: '#60a5fa',
+                backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: { 
+                    beginAtZero: true, 
+                    max: 100,
+                    grid: { color: '#334155' },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                }
+            }
+        }
+    });
+}
+
+// Polling function to get live data
+async function updateStats() {
+    try {
+        const response = await fetch('/?refresh=stats'); // We'll add this case to Go
+        const data = await response.json();
+        
+        // Update Chart
+        resourceChart.data.datasets[0].data.shift();
+        resourceChart.data.datasets[0].data.push(data.memPercent);
+        resourceChart.update('none'); // Update without animation for performance
+        
+    } catch (err) { console.error("Stats poll failed", err); }
+}
+
+// Start monitoring
+initChart();
+setInterval(updateStats, 5000);
+    </script>
 {{end}}

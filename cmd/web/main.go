@@ -105,8 +105,12 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(system.GetDockerContainers()))
 		case "logs":
 			w.Write([]byte(app.getLogs()))
+		case "stats": // ADD THIS CASE
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]float64{
+				"memPercent": system.GetMemPercent(),
+			})
 		default:
-			// If an unknown refresh is requested, return a 400
 			http.Error(w, "Unknown refresh type", http.StatusBadRequest)
 		}
 		return

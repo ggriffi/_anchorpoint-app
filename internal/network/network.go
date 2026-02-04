@@ -1,4 +1,4 @@
-package system
+package network
 
 import (
 	"fmt"
@@ -10,12 +10,11 @@ func GetMemPercent() float64 {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	// Sys is the total memory obtained from the OS.
-	// Alloc is the heap memory currently in use.
 	if m.Sys == 0 {
 		return 0
 	}
 
+	// Returns the percentage of heap memory relative to total system-reserved memory
 	return (float64(m.Alloc) / float64(m.Sys)) * 100
 }
 
