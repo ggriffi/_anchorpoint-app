@@ -1,0 +1,30 @@
+{{template "base" .}}
+
+{{define "main"}}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+    <div class="card" style="width: 100%; max-width: 400px; padding: 40px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="margin: 0; color: var(--teal); letter-spacing: 1px;">SECURE LOGIN</h2>
+            <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">Anchorpoint-IT Management Suite</p>
+        </div>
+
+        <form action="/login" method="POST" style="display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">USERNAME</label>
+                <input type="text" name="username" required 
+                       style="background: rgba(0,0,0,0.2); border: 1px solid var(--stroke); border-radius: 8px; padding: 12px; color: white; outline: none;">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">PASSWORD</label>
+                <input type="password" name="password" required 
+                       style="background: rgba(0,0,0,0.2); border: 1px solid var(--stroke); border-radius: 8px; padding: 12px; color: white; outline: none;">
+            </div>
+
+            <button type="submit" class="btn primary" style="margin-top: 10px; height: 50px;">
+                Access Dashboard
+            </button>
+        </form>
+    </div>
+</div>
+{{end}}
