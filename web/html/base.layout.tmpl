@@ -181,6 +181,21 @@
             border-radius: 10px;
         }
         .main-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+
+        /* Ensure logs use the full width of their container */
+pre {
+    width: 100%;
+    box-sizing: border-box;
+    white-space: pre-wrap; /* Wraps long log lines instead of hiding them */
+    word-break: break-all;
+}
+
+/* Improve card header text visibility against the dark background */
+.card h3 {
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    opacity: 0.9;
+}
     </style>
 </head>
 <body>
