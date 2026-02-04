@@ -68,7 +68,7 @@ func MTR(host string) (string, error) {
 func RunIperf(server string) (string, error) {
 	// -c: Client mode | -t 10: 10 second test | -R: Reverse mode (server sends, we receive)
 	// Adding -R allows you to test the "Download" path to your VPS
-	cmd := exec.Command("iperf3", "-c", server, "-t", "10", "-f", "m", "-R")
+	cmd := exec.Command("iperf3", "-c", "99.20.245.59", "-p", "5201", "-t", "5", "-R")
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"html/template"
 	"log"
@@ -13,9 +14,9 @@ import (
 
 	"anchorpoint-it.com/webapp/internal/network"
 	"anchorpoint-it.com/webapp/internal/system"
+	_ "github.com/mattn/go-sqlite3" // Ensure you've run 'go get github.com/mattn/go-sqlite3'
 )
 
-// templateData holds the initial state for the HTML dashboard
 type templateData struct {
 	GatewayStatus    string
 	MemoryUsage      string
@@ -29,14 +30,12 @@ type templateData struct {
 	IperfResult      string
 }
 
-// HopGeo represents coordinates for a single network hop
 type HopGeo struct {
 	IP  string  `json:"ip"`
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
 }
 
-// DiagResponse is the JSON payload sent back to the browser
 type DiagResponse struct {
 	Output string   `json:"output"`
 	Coords []HopGeo `json:"coords"`
@@ -45,13 +44,11 @@ type DiagResponse struct {
 type application struct {
 	errorLog *log.Logger
 	infoLog  *log.Logger
+	db       *sql.DB
 }
 
 func main() {
-	// 1. Define the absolute path to match your volume mount
 	logPath := "/app/info.log"
-
-	// 2. Open the file using the absolute path
 	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -61,9 +58,21 @@ func main() {
 	infoLog := log.New(f, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(f, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
+	// 1. Initialize Database BEFORE server start
+	db, err := sql.Open("sqlite3", "./anchorpoint.db")
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+	defer db.Close()
+
+	// Ensure users table exists
+	statement, _ := db.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)")
+	statement.Exec()
+
 	app := &application{
 		errorLog: errorLog,
 		infoLog:  infoLog,
+		db:       db,
 	}
 
 	port := os.Getenv("APP_PORT")
@@ -72,7 +81,12 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.home)
+
+	// Public routes
+	mux.HandleFunc("/login", app.login)
+
+	// Protected routes
+	mux.Handle("/", app.requireAuthentication(http.HandlerFunc(app.home)))
 
 	standardMiddleware := app.recoverPanic(app.logRequest(mux))
 
@@ -82,10 +96,10 @@ func main() {
 		Handler:      standardMiddleware,
 		IdleTimeout:  2 * time.Minute,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 2 * time.Minute, // Sufficient for MTR cycles
+		WriteTimeout: 2 * time.Minute,
 	}
 
-	app.infoLog.Printf("Starting AnchorPoint IT on %s", srv.Addr)
+	app.infoLog.Printf("Starting Anchorpoint-IT on %s", srv.Addr)
 	err = srv.ListenAndServe()
 	errorLog.Fatal(err)
 }
@@ -96,16 +110,13 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle AJAX refreshes for Docker, Logs, and more
 	if refreshType := r.URL.Query().Get("refresh"); refreshType != "" {
-		w.Header().Set("Content-Type", "text/plain")
-
 		switch refreshType {
 		case "docker":
 			w.Write([]byte(system.GetDockerContainers()))
 		case "logs":
 			w.Write([]byte(app.getLogs()))
-		case "stats": // ADD THIS CASE
+		case "stats":
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]float64{
 				"memPercent": system.GetMemPercent(),
@@ -121,13 +132,8 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		clientIP = proxyIP
 	}
 
-	status := "Offline"
-	if network.Ping("8.8.8.8") {
-		status = "Online"
-	}
-
 	data := &templateData{
-		GatewayStatus:    status,
+		GatewayStatus:    "Online",
 		MemoryUsage:      system.GetMemStats(),
 		DockerContainers: system.GetDockerContainers(),
 		ClientIP:         clientIP,
@@ -135,54 +141,29 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		err := r.ParseForm()
-		if err != nil {
-			app.errorLog.Println(err.Error())
-			http.Error(w, "Bad Request", 400)
-			return
-		}
-
+		r.ParseForm()
 		var currentResult string
 
-		// 1. Logic for choosing which tool to run
 		if ip := r.PostForm.Get("ping_ip"); ip != "" {
 			if network.Ping(ip) {
 				currentResult = ip + " is reachable."
 			} else {
 				currentResult = ip + " is unreachable."
 			}
-			data.PingResult = currentResult
 		} else if ip := r.PostForm.Get("trace_ip"); ip != "" {
-			res, err := network.Traceroute(ip)
+			res, _ := network.Traceroute(ip)
 			currentResult = res
-			if err != nil {
-				currentResult = err.Error()
-			}
-			data.TraceResult = currentResult
 		} else if ip := r.PostForm.Get("mtr_ip"); ip != "" {
-			res, err := network.MTR(ip)
+			res, _ := network.MTR(ip)
 			currentResult = res
-			if err != nil {
-				currentResult = err.Error()
-			}
-			data.MTRResult = currentResult
 		} else if r.PostForm.Has("speedtest_run") {
-			res, err := network.RunSpeedtest()
+			res, _ := network.RunSpeedtest()
 			currentResult = res
-			if err != nil {
-				currentResult = "Speedtest error: " + err.Error()
-			}
-			data.SpeedtestResult = currentResult
 		} else if ip := r.PostForm.Get("iperf_ip"); ip != "" {
-			res, err := network.RunIperf(ip)
+			res, _ := network.RunIperf(ip)
 			currentResult = res
-			if err != nil {
-				currentResult = "iPerf error: " + err.Error()
-			}
-			data.IperfResult = currentResult
 		}
 
-		// 2. AJAX Interceptor (Returns JSON for the spinner/map)
 		if r.Header.Get("Accept") == "application/json" {
 			ips := extractIPs(currentResult)
 			var coords []HopGeo
@@ -194,55 +175,63 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-
-			resp := DiagResponse{
-				Output: currentResult,
-				Coords: coords,
-			}
-
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-			return // Stop here for AJAX requests
+			json.NewEncoder(w).Encode(DiagResponse{Output: currentResult, Coords: coords})
+			return
 		}
 	}
 
-	// 3. THE RENDERING LOGIC (Runs for initial GET requests)
-	files := []string{
-		"./web/html/home.page.tmpl",
-		"./web/html/base.layout.tmpl",
-	}
+	ts, _ := template.ParseFiles("./web/html/home.page.tmpl", "./web/html/base.layout.tmpl")
+	ts.Execute(w, data)
+}
 
-	ts, err := template.ParseFiles(files...)
-	if err != nil {
-		app.errorLog.Println(err.Error())
-		http.Error(w, "Internal Server Error", 500)
+func (app *application) login(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		ts, _ := template.ParseFiles("./web/html/login.page.tmpl", "./web/html/base.layout.tmpl")
+		ts.Execute(w, nil)
 		return
 	}
 
-	err = ts.Execute(w, data)
-	if err != nil {
-		app.errorLog.Println(err.Error())
-	}
+	// Logic for POST login
+	r.ParseForm()
+	// Validation logic would go here (Check DB, bcrypt comparison)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// getGeo fetches coordinates for an IP with a 2-second timeout
-func getGeo(ip string) HopGeo {
-	client := http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://ip-api.com/json/" + ip)
-	if err != nil {
-		return HopGeo{IP: ip}
-	}
-	defer resp.Body.Close()
-
-	var geo HopGeo
-	json.NewDecoder(resp.Body).Decode(&geo)
-	return geo
+func (app *application) requireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !app.isAuthenticated(r) {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
-// extractIPs parses network diagnostic text for IPv4 addresses
-func extractIPs(text string) []string {
-	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
-	return re.FindAllString(text, -1)
+func (app *application) isAuthenticated(r *http.Request) bool {
+	cookie, err := r.Cookie("authenticated")
+	if err != nil {
+		return false // No cookie, not authenticated
+	}
+	return cookie.Value == "true"
+}
+
+func (app *application) getLogs() string {
+	content, err := os.ReadFile("/app/info.log")
+	if err != nil {
+		return "Log Error: " + err.Error()
+	}
+	lines := strings.Split(string(content), "\n")
+	var cleanLines []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			cleanLines = append(cleanLines, line)
+		}
+	}
+	if len(cleanLines) > 20 {
+		cleanLines = cleanLines[len(cleanLines)-20:]
+	}
+	return strings.Join(cleanLines, "\n")
 }
 
 func (app *application) logRequest(next http.Handler) http.Handler {
@@ -265,28 +254,19 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
-// This must be a method of the 'application' struct
-func (app *application) getLogs() string {
-	// os.ReadFile requires the "os" import
-	content, err := os.ReadFile("/app/info.log")
+func getGeo(ip string) HopGeo {
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://ip-api.com/json/" + ip)
 	if err != nil {
-		return "Log Error: " + err.Error()
+		return HopGeo{IP: ip}
 	}
+	defer resp.Body.Close()
+	var geo HopGeo
+	json.NewDecoder(resp.Body).Decode(&geo)
+	return geo
+}
 
-	// strings.Split requires the "strings" import
-	lines := strings.Split(string(content), "\n")
-	var cleanLines []string
-
-	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			cleanLines = append(cleanLines, line)
-		}
-	}
-
-	// Logic to prevent index out of bounds errors
-	if len(cleanLines) > 20 {
-		cleanLines = cleanLines[len(cleanLines)-20:]
-	}
-
-	return strings.Join(cleanLines, "\n")
+func extractIPs(text string) []string {
+	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+	return re.FindAllString(text, -1)
 }
