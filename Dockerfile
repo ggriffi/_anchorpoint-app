@@ -12,7 +12,6 @@ RUN CGO_ENABLED=1 GOOS=linux go build -o anchorpoint-app ./cmd/web
 FROM debian:bookworm-slim
 WORKDIR /app
 
-# Install dependencies for adding a repo
 RUN apt-get update && apt-get install -y \
     mtr-tiny \
     iputils-ping \
@@ -23,6 +22,11 @@ RUN apt-get update && apt-get install -y \
     iperf3 \
     speedtest-cli \
     libcap2-bin \
+    dnsutils \
+    iputils-tracepath \
+    iputils-arping \
+    tcpdump \
+    whois \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Docker's official GPG key and repo to get the latest CLI
@@ -40,8 +44,9 @@ COPY --from=builder /app/anchorpoint-app .
 COPY --from=builder /app/web ./web
 RUN touch info.log && chmod 666 info.log
 
-# Set capabilities (Permissions logic)
-RUN setcap cap_net_raw+ep $(which mtr) && \
+# Set capabilities (Updated logic)
+RUN setcap cap_net_raw+ep ./anchorpoint-app && \
+    setcap cap_net_raw+ep $(which mtr) && \
     setcap cap_net_raw+ep $(which ping)
 
 EXPOSE 4000

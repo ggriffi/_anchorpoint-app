@@ -1,25 +1,37 @@
 {{template "base" .}}
+
 {{define "main"}}
-<div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px;">
-    <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-        <div style="padding: 15px; border-bottom: 1px solid var(--stroke);"><h3 style="margin: 0; font-size: 0.85rem; color: var(--teal);">Network Path Visualization</h3></div>
-        <div id="map" style="flex-grow: 1; min-height: 500px;"></div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div class="card" style="padding: 0; overflow: hidden; height: 450px; display: flex; flex-direction: column;">
+        <div style="padding: 12px; border-bottom: 1px solid var(--stroke); background: rgba(255,255,255,0.03);">
+            <h3 style="margin: 0; font-size: 0.8rem; color: var(--teal);">Path Visualization</h3>
+        </div>
+        <div id="map" style="flex-grow: 1; background: #0b1220;"></div>
     </div>
+
     <div style="display: flex; flex-direction: column; gap: 24px;">
         <div class="card">
-            <h3>Diagnostic Tools</h3>
-            <input type="text" id="diag_ip" placeholder="Target IP" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: #fff; border-radius: 8px; margin-bottom: 15px;">
-            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <button onclick="runNewDiag('ping')" class="btn">Ping</button>
-                <button onclick="runNewDiag('trace')" class="btn">Trace</button>
-                <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="border-color: var(--teal);">iPerf Server</button>
+            <h3>Diagnostic Suite</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="diag_ip" placeholder="Target IP or Hostname" 
+                       style="flex-grow: 1; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: white; border-radius: 8px;">
             </div>
-            <pre id="diag-output" style="margin-top: 15px; min-height: 200px;"></pre>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+    <button onclick="runNewDiag('ping')" class="btn">Ping</button>
+    <button onclick="runNewDiag('trace')" class="btn">Trace</button>
+    <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
+    <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
+    <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="border-color: var(--teal);">iPerf Server</button>
+    
+    <button onclick="resetIperf()" class="btn" style="border-color: #ef4444; color: #f87171;">Reset Server</button>
+</div>
+            <pre id="diag-output" style="margin-top: 15px; min-height: 150px; max-height: 280px;"></pre>
         </div>
-        <div class="card">
-            <h3>ISP Speedtest</h3>
-            <button onclick="runNewDiag('speedtest')" class="btn primary" style="width: 100%;">Execute Test</button>
-            <pre id="speedtest-output" style="margin-top: 15px;"></pre>
+
+        <div class="card" style="margin-bottom: 0;">
+            <h3>Bandwidth Analysis</h3>
+            <button onclick="runNewDiag('speedtest')" class="btn primary" style="width: 100%;">Run Speedtest</button>
+            <pre id="speedtest-output" style="margin-top: 10px; min-height: 60px;"></pre>
         </div>
     </div>
 </div>
@@ -50,5 +62,29 @@
             btn.innerText = "iPerf Server";
         });
     }
+    async function resetIperf() {
+    const output = document.getElementById('diag-output');
+    output.textContent = ">> SENDING TERMINATION SIGNAL TO IPERF3...";
+    
+    const bodyData = new URLSearchParams();
+    bodyData.append('iperf_reset', 'true');
+
+    try {
+        const response = await fetch('/', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: bodyData
+        });
+        const data = await response.json();
+        output.textContent = data.output;
+        
+        // Restore the Start button state if it was stuck
+        const startBtn = document.getElementById('iperf-server-btn');
+        startBtn.innerText = "iPerf Server";
+        startBtn.disabled = false;
+    } catch (err) {
+        output.textContent = "Reset Error: " + err;
+    }
+}
 </script>
 {{end}}

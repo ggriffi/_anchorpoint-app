@@ -3,11 +3,13 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -178,6 +180,27 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			currentResult, _ = network.RunIperfClient(r.PostForm.Get("iperf_ip"))
 		case r.PostForm.Has("iperf_server_run"):
 			currentResult, _ = network.RunIperfServer()
+		case r.PostForm.Has("iperf_reset"):
+			// Execute pkill and ignore the output buffer since we only care about the error state
+			err := exec.Command("pkill", "iperf3").Run()
+
+			if err != nil {
+				// pkill returns exit code 1 if no processes were matched
+				currentResult = "No active iPerf3 processes found to terminate."
+				app.infoLog.Println("iPerf3 reset requested: No processes found.")
+			} else {
+				currentResult = "iPerf3 server processes cleared successfully."
+				app.infoLog.Println("iPerf3 reset successful: Processes terminated.")
+			}
+		case r.PostForm.Get("dns_lookup") != "":
+			domain := r.PostForm.Get("dns_lookup")
+			ips, _ := net.LookupIP(domain)
+			currentResult = fmt.Sprintf("DNS Records for %s: %v", domain, ips)
+
+		case r.PostForm.Get("whois_ip") != "":
+			// Note: Requires 'whois' binary in Dockerfile
+			res, _ := exec.Command("whois", r.PostForm.Get("whois_ip")).Output()
+			currentResult = string(res)
 		}
 
 		if r.Header.Get("Accept") == "application/json" {
@@ -339,36 +362,32 @@ func (app *application) requireAuthentication(next http.Handler) http.Handler {
 	})
 }
 
+// Updated log filtering logic
 func (app *application) getLogs() string {
-	content, err := os.ReadFile("/app/info.log")
-	if err != nil {
-		return "Log Error: " + err.Error()
-	}
+	content, _ := os.ReadFile("/app/info.log")
 	lines := strings.Split(string(content), "\n")
-	var cleanLines []string
-	ignorePatterns := []string{"GET /?refresh=", "/static/", "/favicon.ico", "Auth Check:"}
+	var clean []string
+	ignore := []string{"/?refresh=", "/static/", "Auth Check:"}
 
 	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
 		skip := false
-		for _, pattern := range ignorePatterns {
-			if strings.Contains(line, pattern) {
+		for _, p := range ignore {
+			if strings.Contains(line, p) {
 				skip = true
 				break
 			}
 		}
-		if !skip {
-			cleanLines = append(cleanLines, line)
+		if !skip && strings.TrimSpace(line) != "" {
+			clean = append(clean, line)
 		}
 	}
 
-	limit := 50
-	if len(cleanLines) > limit {
-		cleanLines = cleanLines[len(cleanLines)-limit:]
+	// Strict 10-line limit for focused monitoring
+	limit := 10
+	if len(clean) > limit {
+		clean = clean[len(clean)-limit:]
 	}
-	return strings.Join(cleanLines, "\n")
+	return strings.Join(clean, "\n")
 }
 
 func (app *application) logRequest(next http.Handler) http.Handler {
