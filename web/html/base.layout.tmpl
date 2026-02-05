@@ -12,34 +12,29 @@
     
     <style>
         :root {
-            /* Brand Identity [cite: 3, 4] */
             --bg: #0b1220;
             --navy: #0b3a5a;
-            --teal: #4ade80; /* High-visibility teal for terminal [cite: 13] */
-            
-            /* Glassmorphism UI [cite: 3, 10] */
+            --teal: #4ade80;
             --card: rgba(255, 255, 255, 0.06);
             --stroke: rgba(255, 255, 255, 0.12);
             --text: #ffffff;
-            --muted: rgba(255, 255, 255, 0.85); /* Increased for readability */
+            --muted: rgba(255, 255, 255, 0.85);
             --radius: 16px;
             --shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
         }
 
         body {
             margin: 0;
-            background:
-                radial-gradient(1200px 600px at 30% 10%, rgba(43, 176, 166, 0.18), transparent 55%),
-                radial-gradient(900px 500px at 80% 20%, rgba(11, 58, 90, 0.28), transparent 60%),
-                var(--bg);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(1200px 600px at 30% 10%, rgba(43, 176, 166, 0.18), transparent 55%),
+                        radial-gradient(900px 500px at 80% 20%, rgba(11, 58, 90, 0.28), transparent 60%),
+                        var(--bg);
+            font-family: 'Inter', sans-serif;
             color: var(--text);
             display: flex;
             height: 100vh;
-            overflow: hidden; /* Prevent double scrollbars */
+            overflow: hidden;
         }
 
-        /* Fixed Glassmorphism Sidebar [cite: 7] */
         .sidebar {
             width: 260px;
             background: rgba(11, 18, 32, 0.85);
@@ -51,18 +46,6 @@
             flex-shrink: 0;
         }
 
-        .sidebar h2 {
-            font-weight: 800;
-            font-size: 1.25rem;
-            margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #ffffff;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        /* Navigation [cite: 11] */
         .nav-section-label {
             color: var(--teal);
             font-size: 0.7rem;
@@ -83,23 +66,19 @@
             display: block;
         }
 
-        .nav-link:hover, .nav-link.active {
+        .nav-link:hover {
             color: #ffffff;
             background: rgba(255, 255, 255, 0.08);
         }
 
-        /* Scrollable Main Content [cite: 42] */
         .main-container {
             flex-grow: 1;
             height: 100vh;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            background: transparent;
-            scroll-behavior: smooth;
         }
 
-        /* Application Header [cite: 27, 28] */
         .app-header {
             background: rgba(11, 15, 20, 0.9);
             backdrop-filter: blur(10px);
@@ -113,31 +92,15 @@
             z-index: 100;
         }
 
-        /* Enhanced Card Visibility [cite: 9, 10] */
         .card {
             border: 1px solid var(--stroke);
             border-radius: var(--radius);
             background: var(--card);
             backdrop-filter: blur(10px);
-            box-shadow: var(--shadow);
-            margin-bottom: 24px;
             padding: 20px;
         }
 
-        .card h3 {
-            color: #ffffff;
-            font-weight: 700;
-            margin-top: 0;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-        }
-
-        /* Buttons [cite: 15, 17] */
         .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
             padding: 10px 20px;
             border-radius: 999px;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -145,105 +108,45 @@
             color: #ffffff;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.12s ease;
         }
 
-        .btn:hover {
-            transform: translateY(-1px);
-            background: rgba(255, 255, 255, 0.15);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .btn.primary {
-            background: linear-gradient(135deg, var(--navy), #0e4f73);
-            border-color: rgba(43, 176, 166, 0.45);
-        }
-
-        /* High-Contrast Terminal Output [cite: 13, 49] */
         pre {
             background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--stroke);
             color: var(--teal);
-            padding: 1.25rem;
+            padding: 1rem;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            font-weight: 500;
-            line-height: 1.6;
             border-radius: 12px;
-            overflow-x: auto;
-            text-shadow: 0 0 5px rgba(74, 222, 128, 0.15);
+            white-space: pre-wrap;
+            word-break: break-all;
         }
-
-        /* Custom Scrollbar */
-        .main-container::-webkit-scrollbar { width: 8px; }
-        .main-container::-webkit-scrollbar-thumb {
-            background: var(--navy);
-            border-radius: 10px;
-        }
-        .main-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-
-        /* Ensure logs use the full width of their container */
-pre {
-    width: 100%;
-    box-sizing: border-box;
-    white-space: pre-wrap; /* Wraps long log lines instead of hiding them */
-    word-break: break-all;
-}
-
-/* Improve card header text visibility against the dark background */
-.card h3 {
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    opacity: 0.9;
-}
     </style>
 </head>
 <body>
-    <div class="sidebar">
-<h2 style="display: flex; align-items: center; gap: 12px; margin-bottom: 30px;">
-    <img src="https://anchorpoint-it.com/assets/logo-512.png" 
-         alt="Anchorpoint-IT Logo" 
-         style="width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));">
+<nav style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
+    <div class="nav-section-label">Diagnostics</div>
+    <a href="/" class="nav-link">Dashboard</a>
+    <a href="/settings" class="nav-link">Site Settings</a>
     
-    <span style="font-weight: 800; font-size: 1.25rem; background: linear-gradient(to right, #60a5fa, #2563eb); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-        Anchorpoint-IT
-    </span>
-</h2>
-        
-        <nav style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
-            <div class="nav-section-label">Diagnostics</div>
-            <a href="/" class="nav-link active">Dashboard</a>
-            <a href="/settings" class="nav-link">Site Settings</a>
-            <a href="#map" class="nav-link">Path Visualization</a>
-            
-            <div class="nav-section-label">System</div>
-            <a href="#logs" class="nav-link">Server Logs</a>
-        </nav>
+    <div class="nav-section-label">System</div>
+    <a href="/system" class="nav-link">System Monitor</a>
+</nav>
 
-        <div style="padding-top: 20px; border-top: 1px solid var(--stroke);">
-            <div class="nav-section-label" style="margin-top: 0;">Resource Monitor</div>
-            <div style="height: 120px; width: 100%;">
-                <canvas id="resourceChart"></canvas>
-            </div>
-        </div>
+<div style="padding-top: 20px; border-top: 1px solid var(--stroke);">
+    <div class="nav-section-label" style="margin: 0 0 10px 0;">VPS Resource Load</div>
+    <div style="height: 100px; width: 100%;">
+        <canvas id="resourceChart"></canvas>
     </div>
+</div>
 
     <div class="main-container">
         <header class="app-header">
-            <div style="font-weight: 700; font-size: 0.95rem;">
-                <span style="color: var(--teal);">●</span> {{.ServerPublicIP}} 
-            </div>
-            <div style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">
-                {{.ClientIP}} | Mem: {{.MemoryUsage}}
-            </div>
+            <div style="font-weight: 700;"><span style="color: var(--teal);">●</span> {{.ServerPublicIP}}</div>
+            <div style="font-size: 0.85rem; color: var(--muted);">{{.ClientIP}} | Mem: {{.MemoryUsage}}</div>
         </header>
-
         <main style="padding: 30px;">
             {{template "main" .}}
         </main>
     </div>
-    
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
 {{end}}

@@ -100,6 +100,7 @@ func main() {
 	// Protected routes
 	mux.Handle("/", app.requireAuthentication(http.HandlerFunc(app.home)))
 	mux.Handle("/settings", app.requireAuthentication(http.HandlerFunc(app.createUser)))
+	mux.Handle("/system", app.requireAuthentication(http.HandlerFunc(app.systemMonitor)))
 
 	standardMiddleware := app.recoverPanic(app.logRequest(mux))
 
@@ -157,31 +158,35 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		var currentResult string
 
-		if ip := r.PostForm.Get("ping_ip"); ip != "" {
+		// Use a tagged switch for cleaner diagnostic routing
+		switch {
+		case r.PostForm.Get("ping_ip") != "":
+			ip := r.PostForm.Get("ping_ip")
 			if network.Ping(ip) {
 				currentResult = ip + " is reachable."
 			} else {
 				currentResult = ip + " is unreachable."
 			}
-		} else if ip := r.PostForm.Get("trace_ip"); ip != "" {
-			res, _ := network.Traceroute(ip)
-			currentResult = res
-		} else if ip := r.PostForm.Get("mtr_ip"); ip != "" {
-			res, _ := network.MTR(ip)
-			currentResult = res
-		} else if r.PostForm.Has("speedtest_run") {
-			res, _ := network.RunSpeedtest()
-			currentResult = res
-		} else if ip := r.PostForm.Get("iperf_ip"); ip != "" {
-			// Existing Client Logic
-			res, _ := network.RunIperfClient(ip)
-			currentResult = res
-		} else if r.PostForm.Has("iperf_server_run") {
-			// NEW Server Logic: This will wait up to 60s for a connection
-			res, _ := network.RunIperfServer()
-			currentResult = res
+
+		case r.PostForm.Get("trace_ip") != "":
+			currentResult, _ = network.Traceroute(r.PostForm.Get("trace_ip"))
+
+		case r.PostForm.Get("mtr_ip") != "":
+			currentResult, _ = network.MTR(r.PostForm.Get("mtr_ip"))
+
+		case r.PostForm.Has("speedtest_run"):
+			currentResult, _ = network.RunSpeedtest()
+
+		case r.PostForm.Get("iperf_ip") != "":
+			// Executes Client Mode
+			currentResult, _ = network.RunIperfClient(r.PostForm.Get("iperf_ip"))
+
+		case r.PostForm.Has("iperf_server_run"):
+			// Executes Server Mode (Listening on port 5201)
+			currentResult, _ = network.RunIperfServer()
 		}
 
+		// Handle JSON response for the AJAX frontend
 		if r.Header.Get("Accept") == "application/json" {
 			ips := extractIPs(currentResult)
 			var coords []HopGeo
@@ -387,15 +392,34 @@ func (app *application) getLogs() string {
 	lines := strings.Split(string(content), "\n")
 	var cleanLines []string
 
+	// Define patterns to ignore
+	ignorePatterns := []string{
+		"GET /?refresh=",
+		"GET /static/",
+		"GET /favicon.ico",
+		"Auth Check: No cookie found for path /login",
+	}
+
 	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		skip := false
+		for _, pattern := range ignorePatterns {
+			if strings.Contains(line, pattern) {
+				skip = true
+				break
+			}
+		}
+
+		if !skip {
 			cleanLines = append(cleanLines, line)
 		}
 	}
 
-	// Increased from 20 to 100 to provide better visibility
-	// into auth redirects and errors
-	limit := 10
+	// Now we can show more lines since they are "real" info
+	limit := 50
 	if len(cleanLines) > limit {
 		cleanLines = cleanLines[len(cleanLines)-limit:]
 	}
@@ -446,4 +470,21 @@ func getGeo(ip string) HopGeo {
 func extractIPs(text string) []string {
 	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
 	return re.FindAllString(text, -1)
+}
+
+func (app *application) systemMonitor(w http.ResponseWriter, r *http.Request) {
+	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
+		clientIP = proxyIP
+	}
+
+	data := &templateData{
+		MemoryUsage:      system.GetMemStats(),
+		DockerContainers: system.GetDockerContainers(),
+		ClientIP:         clientIP,
+		ServerPublicIP:   network.GetPublicIP(),
+	}
+
+	ts, _ := template.ParseFiles("./web/html/system.page.tmpl", "./web/html/base.layout.tmpl")
+	ts.Execute(w, data)
 }

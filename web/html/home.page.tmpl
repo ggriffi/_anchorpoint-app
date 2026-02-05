@@ -3,97 +3,60 @@
 {{define "title"}}Network Utility Belt{{end}}
 
 {{define "main"}}
-<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 24px;">
-    <div style="padding: 15px; border-bottom: 1px solid var(--border); background: #fdfdfd;">
-        <h3 style="margin: 0; font-size: 1rem;">Network Path Visualization</h3>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="padding: 15px; border-bottom: 1px solid var(--stroke); background: rgba(255,255,255,0.03);">
+            <h3 style="margin: 0; font-size: 0.85rem; color: var(--teal);">Network Path Visualization</h3>
+        </div>
+        <div id="map" style="flex-grow: 1; min-height: 500px; background: #0b1220;"></div>
     </div>
-    <div id="map" style="height: 400px; background: #eee;"></div>
-</div>
 
-<div class="card" style="padding: 20px;">
-    <h3 style="margin-top: 0;">Diagnostic Tools</h3>
-    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <input type="text" id="diag_ip" placeholder="Target IP or Hostname" style="flex-grow: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="card">
+            <h3>Diagnostic Tools</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="diag_ip" placeholder="Target IP or Hostname" 
+                       style="flex-grow: 1; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: white; border-radius: 8px;">
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <button onclick="runNewDiag('ping')" class="btn">Ping</button>
+                <button onclick="runNewDiag('trace')" class="btn">Trace</button>
+                <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
+                <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
+                <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="border-color: var(--teal);">iPerf Server</button>
+            </div>
+            <pre id="diag-output" style="margin-top: 15px; min-height: 150px; max-height: 300px;"></pre>
+        </div>
+
+        <div class="card">
+            <h3>Bandwidth Analysis</h3>
+            <button onclick="runNewDiag('speedtest')" class="btn primary" style="width: 100%; margin-bottom: 15px;">Run ISP Speedtest</button>
+            <pre id="speedtest-output" style="min-height: 100px;"></pre>
+        </div>
     </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-        <button onclick="runNewDiag('ping')" class="btn">Ping</button>
-        <button onclick="runNewDiag('trace')" class="btn">Trace</button>
-        <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
-        <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
-        <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="background: var(--secondary); border: 1px solid var(--teal);">iPerf Server</button>
-    </div>
-    <pre id="diag-output" style="background: #f1f5f9; padding: 15px; margin-top: 15px; min-height: 100px; max-height: 300px; overflow-y: auto; font-size: 0.8rem; border: 1px solid #cbd5e1;"></pre>
-</div>
-
-    <div class="card" style="padding: 20px;">
-        <h3 style="margin-top: 0;">Bandwidth Analysis</h3>
-        <button onclick="runNewDiag('speedtest')" style="width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Run ISP Speedtest</button>
-        <pre id="speedtest-output" style="background: #f1f5f9; padding: 15px; margin-top: 15px; font-size: 0.85rem; border: 1px solid #cbd5e1;"></pre>
-    </div>
-</div>
-
-<div id="logs" class="status-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-    
-    <section class="card" style="display: flex; flex-direction: column; min-height: 400px; padding: 0; overflow: hidden;">
-        <div style="padding: 15px 20px; border-bottom: 1px solid var(--stroke);">
-            <h3 style="margin: 0; font-size: 0.85rem; color: var(--teal);">Docker Host</h3>
-        </div>
-        <div style="flex-grow: 1; background: rgba(0, 0, 0, 0.4); padding: 15px; overflow-y: auto;">
-            <pre id="docker-output" style="margin: 0; border: none; background: transparent; height: 100%;">{{.DockerContainers}}</pre>
-        </div>
-        <div style="padding: 12px; background: rgba(255,255,255,0.03); border-top: 1px solid var(--stroke);">
-            <button onclick="refreshDocker()" class="btn" style="width: 100%;">Refresh Status</button>
-        </div>
-    </section>
-
-    <section class="card" style="display: flex; flex-direction: column; min-height: 400px; padding: 0; overflow: hidden;">
-        <div style="padding: 15px 20px; border-bottom: 1px solid var(--stroke);">
-            <h3 style="margin: 0; font-size: 0.85rem; color: var(--teal);">System Logs</h3>
-        </div>
-        <div style="flex-grow: 1; background: rgba(0, 0, 0, 0.4); padding: 15px; overflow-y: auto;">
-            <pre id="log-output" style="margin: 0; border: none; background: transparent; height: 100%;">Awaiting logs...</pre>
-        </div>
-        <div style="padding: 12px; background: rgba(255,255,255,0.03); border-top: 1px solid var(--stroke);">
-            <button onclick="refreshLogs()" class="btn" style="width: 100%;">Refresh Logs</button>
-        </div>
-    </section>
 </div>
 
 <script>
-    // 1. Declare Global Variables at the top to avoid initialization errors
-    let map;
-    let markers = [];
-    let polyline = null;
-    let resourceChart;
+    let map, markers = [], polyline = null;
 
-    // 2. Initialize App Components once the DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
-        // Map Setup
         map = L.map('map').setView([39.3114, -94.9225], 4);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // Resource Monitor Setup
-        initChart();
-        setInterval(updateStats, 5000); // Poll backend every 5 seconds
-
-        // Initial Data Fetch
-        refreshLogs();
-        refreshDocker();
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        initChart(); // Chart in sidebar
+        setInterval(updateStats, 5000);
     });
 
-    /** Diagnostic Runner */
     async function runNewDiag(type) {
         const inputField = document.getElementById('diag_ip');
         const output = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
         const targetIP = inputField ? inputField.value.trim() : "";
 
         if (type !== 'speedtest' && !targetIP) {
-            alert("Please enter a target IP or hostname for " + type.toUpperCase());
+            alert("Enter target IP/Hostname");
             return;
         }
 
-        output.textContent = ">> Executing " + type.toUpperCase() + "...\n";
-        
+        output.textContent = ">> EXECUTING " + type.toUpperCase() + "...";
         let bodyData = new URLSearchParams();
         type === 'speedtest' ? bodyData.append('speedtest_run', 'true') : bodyData.append(type + '_ip', targetIP);
 
@@ -106,113 +69,37 @@
             const data = await response.json();
             output.textContent = data.output;
             if (data.coords) updateMap(data.coords);
-        } catch (err) {
-            output.textContent = "Error: " + err;
-        }
+        } catch (err) { output.textContent = "Error: " + err; }
     }
 
-    /** System Helpers */
-    async function refreshLogs() {
-        const output = document.getElementById('log-output');
-        if (!output) return; // Prevent errors if element is missing
-        try {
-            const response = await fetch('/?refresh=logs');
-            output.textContent = await response.text();
-            output.scrollTop = output.scrollHeight;
-        } catch (err) { output.textContent = "Log Error: " + err; }
-    }
-
-    async function refreshDocker() {
-        const output = document.getElementById('docker-output');
-        if (!output) return;
-        try {
-            const response = await fetch('/?refresh=docker');
-            output.textContent = await response.text();
-        } catch (err) { output.textContent = "Docker Error: " + err; }
-    }
-
-    /** Resource Monitor Logic */
-    function initChart() {
-        const ctx = document.getElementById('resourceChart').getContext('2d');
-        resourceChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: Array(10).fill(''),
-                datasets: [{
-                    label: 'Memory %',
-                    data: Array(10).fill(0),
-                    borderColor: '#60a5fa',
-                    backgroundColor: 'rgba(96, 165, 250, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { display: false },
-                    y: { beginAtZero: true, max: 100, ticks: { display: false }, grid: { display: false } }
-                }
-            }
-        });
-    }
-
-    async function updateStats() {
-        try {
-            const response = await fetch('/?refresh=stats');
-            const data = await response.json();
-            resourceChart.data.datasets[0].data.shift();
-            resourceChart.data.datasets[0].data.push(data.memPercent);
-            resourceChart.update('none');
-        } catch (err) { console.error("Stats fail", err); }
-    }
-
-    /** Path Visualization */
     function updateMap(coords) {
         markers.forEach(m => map.removeLayer(m));
         if (polyline) map.removeLayer(polyline);
         markers = [];
         const latLngs = coords.map(c => [c.lat, c.lon]);
         coords.forEach(c => {
-            const m = L.circleMarker([c.lat, c.lon], {radius: 5, color: '#2563eb'}).addTo(map);
+            const m = L.circleMarker([c.lat, c.lon], {radius: 5, color: '#4ade80'}).addTo(map);
             markers.push(m);
         });
-        polyline = L.polyline(latLngs, {color: '#2563eb', weight: 2, dashArray: '5, 10'}).addTo(map);
+        polyline = L.polyline(latLngs, {color: '#4ade80', weight: 2, dashArray: '5, 10'}).addTo(map);
         if (markers.length > 0) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
     }
 
-function runIperfServer() {
-    const btn = document.getElementById('iperf-server-btn');
-    const output = document.getElementById('diag-output');
-    
-    // UI Feedback
-    btn.innerText = "Listening...";
-    btn.disabled = true;
-    output.innerText = "Starting iPerf3 server on port 5201...\nWaiting for connection (60s timeout)...";
+    function runIperfServer() {
+        const btn = document.getElementById('iperf-server-btn');
+        const output = document.getElementById('diag-output');
+        btn.innerText = "Listening...";
+        btn.disabled = true;
+        const formData = new FormData();
+        formData.append('iperf_server_run', 'true');
 
-    const formData = new FormData();
-    formData.append('iperf_server_run', 'true');
-
-    fetch('/', {
-        method: 'POST',
-        body: formData,
-        headers: { 'Accept': 'application/json' }
-    })
-    .then(response => response.json())
-    .then(data => {
-        output.innerText = data.output;
-        btn.innerText = "iPerf Server";
-        btn.disabled = false;
-    })
-    .catch(error => {
-        output.innerText = "Error: " + error;
-        btn.innerText = "iPerf Server";
-        btn.disabled = false;
-    });
-}
-
+        fetch('/', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
+        .then(res => res.json())
+        .then(data => {
+            output.textContent = data.output;
+            btn.innerText = "iPerf Server";
+            btn.disabled = false;
+        });
+    }
 </script>
 {{end}}

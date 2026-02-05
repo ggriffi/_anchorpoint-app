@@ -1,0 +1,49 @@
+{{template "base" .}}
+
+{{define "main"}}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+    <section class="card" style="display: flex; flex-direction: column; height: 75vh;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Docker Environment</h3>
+            <button onclick="refreshDocker()" class="btn" style="padding: 5px 15px; font-size: 0.7rem;">Refresh</button>
+        </div>
+        <pre id="docker-output" style="flex-grow: 1; overflow-y: auto;">{{.DockerContainers}}</pre>
+    </section>
+
+    <section class="card" style="display: flex; flex-direction: column; height: 75vh;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Filtered System Logs</h3>
+            <button onclick="refreshLogs()" class="btn primary" style="padding: 5px 15px; font-size: 0.7rem;">Pull Fresh Logs</button>
+        </div>
+        <pre id="log-output" style="flex-grow: 1; overflow-y: auto;">Awaiting filtered stream...</pre>
+    </section>
+</div>
+
+<script>
+    async function refreshLogs() {
+        const output = document.getElementById('log-output');
+        output.style.opacity = '0.5';
+        try {
+            const res = await fetch('/?refresh=logs');
+            output.textContent = await res.text();
+            output.scrollTop = output.scrollHeight;
+        } catch (err) { output.textContent = "Log Error: " + err; }
+        output.style.opacity = '1';
+    }
+
+    async function refreshDocker() {
+        const output = document.getElementById('docker-output');
+        output.style.opacity = '0.5';
+        try {
+            const res = await fetch('/?refresh=docker');
+            output.textContent = await res.text();
+        } catch (err) { output.textContent = "Docker Error: " + err; }
+        output.style.opacity = '1';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshLogs();
+        setInterval(refreshLogs, 10000); // Auto-refresh logs every 10s
+    });
+</script>
+{{end}}
