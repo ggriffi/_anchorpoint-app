@@ -1,104 +1,53 @@
 {{template "base" .}}
-
-{{define "title"}}Network Utility Belt{{end}}
-
 {{define "main"}}
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+<div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px;">
     <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-        <div style="padding: 15px; border-bottom: 1px solid var(--stroke); background: rgba(255,255,255,0.03);">
-            <h3 style="margin: 0; font-size: 0.85rem; color: var(--teal);">Network Path Visualization</h3>
-        </div>
-        <div id="map" style="flex-grow: 1; min-height: 500px; background: #0b1220;"></div>
+        <div style="padding: 15px; border-bottom: 1px solid var(--stroke);"><h3 style="margin: 0; font-size: 0.85rem; color: var(--teal);">Network Path Visualization</h3></div>
+        <div id="map" style="flex-grow: 1; min-height: 500px;"></div>
     </div>
-
     <div style="display: flex; flex-direction: column; gap: 24px;">
         <div class="card">
             <h3>Diagnostic Tools</h3>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <input type="text" id="diag_ip" placeholder="Target IP or Hostname" 
-                       style="flex-grow: 1; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: white; border-radius: 8px;">
-            </div>
+            <input type="text" id="diag_ip" placeholder="Target IP" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: #fff; border-radius: 8px; margin-bottom: 15px;">
             <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 <button onclick="runNewDiag('ping')" class="btn">Ping</button>
                 <button onclick="runNewDiag('trace')" class="btn">Trace</button>
-                <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
-                <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
                 <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="border-color: var(--teal);">iPerf Server</button>
             </div>
-            <pre id="diag-output" style="margin-top: 15px; min-height: 150px; max-height: 300px;"></pre>
+            <pre id="diag-output" style="margin-top: 15px; min-height: 200px;"></pre>
         </div>
-
         <div class="card">
-            <h3>Bandwidth Analysis</h3>
-            <button onclick="runNewDiag('speedtest')" class="btn primary" style="width: 100%; margin-bottom: 15px;">Run ISP Speedtest</button>
-            <pre id="speedtest-output" style="min-height: 100px;"></pre>
+            <h3>ISP Speedtest</h3>
+            <button onclick="runNewDiag('speedtest')" class="btn primary" style="width: 100%;">Execute Test</button>
+            <pre id="speedtest-output" style="margin-top: 15px;"></pre>
         </div>
     </div>
 </div>
-
 <script>
-    let map, markers = [], polyline = null;
-
+    let map;
     document.addEventListener('DOMContentLoaded', () => {
         map = L.map('map').setView([39.3114, -94.9225], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        initChart(); // Chart in sidebar
-        setInterval(updateStats, 5000);
     });
-
     async function runNewDiag(type) {
-        const inputField = document.getElementById('diag_ip');
-        const output = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
-        const targetIP = inputField ? inputField.value.trim() : "";
-
-        if (type !== 'speedtest' && !targetIP) {
-            alert("Enter target IP/Hostname");
-            return;
-        }
-
-        output.textContent = ">> EXECUTING " + type.toUpperCase() + "...";
-        let bodyData = new URLSearchParams();
-        type === 'speedtest' ? bodyData.append('speedtest_run', 'true') : bodyData.append(type + '_ip', targetIP);
-
-        try {
-            const response = await fetch('/', {
-                method: 'POST',
-                headers: { 'Accept': 'application/json' },
-                body: bodyData
-            });
-            const data = await response.json();
-            output.textContent = data.output;
-            if (data.coords) updateMap(data.coords);
-        } catch (err) { output.textContent = "Error: " + err; }
+        const out = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
+        const ip = document.getElementById('diag_ip').value;
+        out.textContent = "Running...";
+        const body = new URLSearchParams();
+        type === 'speedtest' ? body.append('speedtest_run', 'true') : body.append(type+'_ip', ip);
+        const res = await fetch('/', { method: 'POST', body, headers: {'Accept': 'application/json'} });
+        const data = await res.json();
+        out.textContent = data.output;
     }
-
-    function updateMap(coords) {
-        markers.forEach(m => map.removeLayer(m));
-        if (polyline) map.removeLayer(polyline);
-        markers = [];
-        const latLngs = coords.map(c => [c.lat, c.lon]);
-        coords.forEach(c => {
-            const m = L.circleMarker([c.lat, c.lon], {radius: 5, color: '#4ade80'}).addTo(map);
-            markers.push(m);
-        });
-        polyline = L.polyline(latLngs, {color: '#4ade80', weight: 2, dashArray: '5, 10'}).addTo(map);
-        if (markers.length > 0) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
-    }
-
     function runIperfServer() {
         const btn = document.getElementById('iperf-server-btn');
-        const output = document.getElementById('diag-output');
         btn.innerText = "Listening...";
-        btn.disabled = true;
-        const formData = new FormData();
-        formData.append('iperf_server_run', 'true');
-
-        fetch('/', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
-        .then(res => res.json())
-        .then(data => {
-            output.textContent = data.output;
+        const body = new URLSearchParams();
+        body.append('iperf_server_run', 'true');
+        fetch('/', { method: 'POST', body, headers: {'Accept': 'application/json'} })
+        .then(r => r.json()).then(d => {
+            document.getElementById('diag-output').textContent = d.output;
             btn.innerText = "iPerf Server";
-            btn.disabled = false;
         });
     }
 </script>

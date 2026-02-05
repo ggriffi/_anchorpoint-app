@@ -1,49 +1,28 @@
 {{template "base" .}}
-
 {{define "main"}}
 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
     <section class="card" style="display: flex; flex-direction: column; height: 75vh;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0;">Docker Environment</h3>
-            <button onclick="refreshDocker()" class="btn" style="padding: 5px 15px; font-size: 0.7rem;">Refresh</button>
+            <h3 style="margin: 0;">Docker Host</h3>
+            <button onclick="refresh('docker')" class="btn" style="padding: 5px 15px; font-size: 0.7rem;">Refresh</button>
         </div>
-        <pre id="docker-output" style="flex-grow: 1; overflow-y: auto;">{{.DockerContainers}}</pre>
+        <pre id="docker-output" style="flex-grow: 1;">{{.DockerContainers}}</pre>
     </section>
-
     <section class="card" style="display: flex; flex-direction: column; height: 75vh;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0;">Filtered System Logs</h3>
-            <button onclick="refreshLogs()" class="btn primary" style="padding: 5px 15px; font-size: 0.7rem;">Pull Fresh Logs</button>
+            <h3 style="margin: 0;">System Logs (Filtered)</h3>
+            <button onclick="refresh('logs')" class="btn primary" style="padding: 5px 15px; font-size: 0.7rem;">Refresh Logs</button>
         </div>
-        <pre id="log-output" style="flex-grow: 1; overflow-y: auto;">Awaiting filtered stream...</pre>
+        <pre id="log-output" style="flex-grow: 1;">Awaiting logs...</pre>
     </section>
 </div>
-
 <script>
-    async function refreshLogs() {
-        const output = document.getElementById('log-output');
-        output.style.opacity = '0.5';
-        try {
-            const res = await fetch('/?refresh=logs');
-            output.textContent = await res.text();
-            output.scrollTop = output.scrollHeight;
-        } catch (err) { output.textContent = "Log Error: " + err; }
-        output.style.opacity = '1';
+    async function refresh(type) {
+        const out = document.getElementById(type === 'logs' ? 'log-output' : 'docker-output');
+        const res = await fetch(`/?refresh=${type}`);
+        out.textContent = await res.text();
+        if (type === 'logs') out.scrollTop = out.scrollHeight;
     }
-
-    async function refreshDocker() {
-        const output = document.getElementById('docker-output');
-        output.style.opacity = '0.5';
-        try {
-            const res = await fetch('/?refresh=docker');
-            output.textContent = await res.text();
-        } catch (err) { output.textContent = "Docker Error: " + err; }
-        output.style.opacity = '1';
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        refreshLogs();
-        setInterval(refreshLogs, 10000); // Auto-refresh logs every 10s
-    });
+    document.addEventListener('DOMContentLoaded', () => { refresh('logs'); setInterval(() => refresh('logs'), 10000); });
 </script>
 {{end}}
