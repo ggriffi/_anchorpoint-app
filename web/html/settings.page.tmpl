@@ -21,12 +21,12 @@
                 </tr>
             </thead>
             <tbody>
-                {{range .}}
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 10px; color: white;">{{.}}</td>
-                    <td style="padding: 10px; color: var(--muted);">Administrator</td>
-                </tr>
-                {{end}}
+{{range .Usernames}}
+    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <td style="padding: 10px; color: white;">{{.}}</td>
+        <td style="padding: 10px; color: var(--muted);">Administrator</td>
+    </tr>
+{{end}}
             </tbody>
         </table>
     </div>

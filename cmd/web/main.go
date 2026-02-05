@@ -48,6 +48,11 @@ type application struct {
 	db       *sql.DB
 }
 
+type settingsData struct {
+	Usernames      []string
+	ServerPublicIP string
+}
+
 func main() {
 	logPath := "/app/info.log"
 	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -263,8 +268,13 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Passing the slice directly; template will now handle an empty slice gracefully
-		err = ts.Execute(w, getUsers())
+		// Wrap the data so base.layout.tmpl can see ServerPublicIP
+		data := &settingsData{
+			Usernames:      getUsers(),
+			ServerPublicIP: network.GetPublicIP(), // Use your network package to get the IP
+		}
+
+		err = ts.Execute(w, data)
 		if err != nil {
 			app.errorLog.Printf("Template Execution Error: %v", err)
 		}
