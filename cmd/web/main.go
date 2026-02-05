@@ -431,11 +431,12 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		csp := []string{
 			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com",
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com",
 			"style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
 			"font-src 'self' https://fonts.gstatic.com",
-			"img-src 'self' data: https://unpkg.com https://*.tile.openstreetmap.org https://anchorpoint-it.com",
-			"connect-src 'self' https://static.cloudflareinsights.com https://cdn.jsdelivr.net https://unpkg.com",
+			// Whitelist CartoDB for the new dark-mode tiles
+			"img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://anchorpoint-it.com",
+			"connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com",
 		}
 		w.Header().Set("Content-Security-Policy", strings.Join(csp, "; "))
 		next.ServeHTTP(w, r)

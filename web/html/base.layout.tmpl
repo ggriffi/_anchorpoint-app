@@ -44,28 +44,46 @@
         <main style="padding: 30px;">{{template "main" .}}</main>
     </div>
     <script>
-        let resourceChart;
-        function initChart() {
-            const ctx = document.getElementById('resourceChart').getContext('2d');
-            resourceChart = new Chart(ctx, {
-                type: 'line',
-                data: { labels: Array(10).fill(''), datasets: [{ data: Array(10).fill(0), borderColor: '#60a5fa', tension: 0.4, fill: true, pointRadius: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false, max: 100, min: 0 } } }
-            });
+let resourceChart;
+
+function initChart() {
+    const chartEl = document.getElementById('resourceChart');
+    if (!chartEl) return;
+    const ctx = chartEl.getContext('2d');
+    resourceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array(10).fill(''),
+            datasets: [{
+                data: Array(10).fill(0),
+                borderColor: '#60a5fa',
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false, max: 100, min: 0 } }
         }
-        async function updateStats() {
-            try {
-                const res = await fetch('/?refresh=stats');
-                const data = await res.json();
-                if (resourceChart) {
-                    resourceChart.data.datasets[0].data.shift();
-                    resourceChart.data.datasets[0].data.push(data.memPercent);
-                    resourceChart.update('none');
-                }
-            } catch (e) {}
+    });
+}
+
+// Check if initChart exists before calling in home.page.tmpl or settings.page.tmpl
+document.addEventListener('DOMContentLoaded', () => {
+    initChart();
+    setInterval(async () => {
+        const res = await fetch('/?refresh=stats');
+        const data = await res.json();
+        if (resourceChart) {
+            resourceChart.data.datasets[0].data.shift();
+            resourceChart.data.datasets[0].data.push(data.memPercent);
+            resourceChart.update('none');
         }
-        document.addEventListener('DOMContentLoaded', () => { initChart(); setInterval(updateStats, 5000); });
-    </script>
+    }, 5000);
+});
 </body>
 </html>
 {{end}}
