@@ -127,22 +127,27 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		case r.PostForm.Has("iperf_server_run"):
 			currentResult, _ = network.RunIperfServer()
 		case r.PostForm.Has("iperf_reset"):
-			// Use fuser to kill whatever is holding the iPerf3 port open
-			// -k: kill, -n tcp: protocol, 5201: port
-			err := exec.Command("fuser", "-k", "5201/tcp").Run()
+			// Using sh -c allows us to use shell features for a cleaner kill
+			cmd := exec.Command("sh", "-c", "fuser -k 5201/tcp || pkill iperf3")
+			err := cmd.Run()
 
 			if err != nil {
-				// If fuser fails, fall back to pkill just in case
-				exec.Command("pkill", "iperf3").Run()
-				currentResult = "Port 5201 was already clear or reset via pkill."
+				app.errorLog.Printf("Manual reset failed: %v", err)
+				currentResult = "Reset failed. Check VPS logs for 'Operation not permitted'."
 			} else {
-				currentResult = "SUCCESS: Port 5201 has been forcefully cleared."
+				app.infoLog.Println("iPerf3 Reset: Port 5201 cleared.")
+				currentResult = "SUCCESS: Port 5201 forcefully cleared."
 			}
 		}
 
 		if r.Header.Get("Accept") == "application/json" {
 			ips := extractIPs(currentResult)
 			var coords []HopGeo
+			// 1. Add the Client's public IP as the starting point
+			clientGeo := getGeo(app.getRemoteIP(r))
+			if clientGeo.Lat != 0 {
+				coords = append(coords, clientGeo)
+			}
 			for _, ip := range ips {
 				if !isPrivateIP(ip) {
 					geo := getGeo(ip)
