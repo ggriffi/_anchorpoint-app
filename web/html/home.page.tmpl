@@ -32,7 +32,7 @@
     async function runNewDiag(type) {
         const out = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
         const ip = document.getElementById('diag_ip').value;
-        out.textContent = "Running...";
+        out.textContent = "Running " + type + "...";
         const body = new URLSearchParams();
         type === 'speedtest' ? body.append('speedtest_run', 'true') : body.append(type+'_ip', ip);
         const res = await fetch('/', { method: 'POST', body, headers: {'Accept': 'application/json'} });

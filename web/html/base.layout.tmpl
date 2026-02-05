@@ -9,15 +9,16 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <style>
-        :root { --bg: #0b1220; --navy: #0b3a5a; --teal: #4ade80; --card: rgba(255,255,255,0.06); --stroke: rgba(255,255,255,0.12); --text: #ffffff; --muted: rgba(255,255,255,0.85); --radius: 16px; }
+        :root { --bg: #0b1220; --navy: #0b3a5a; --teal: #4ade80; --card: rgba(255, 255, 255, 0.06); --stroke: rgba(255, 255, 255, 0.12); --text: #ffffff; --muted: rgba(255, 255, 255, 0.85); --radius: 16px; }
         body { margin: 0; background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 260px; background: rgba(11,18,32,0.85); backdrop-filter: blur(12px); border-right: 1px solid var(--stroke); display: flex; flex-direction: column; padding: 24px; }
-        .nav-link { color: var(--muted); text-decoration: none; padding: 10px 14px; border-radius: 10px; display: block; font-weight: 600; }
-        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .sidebar { width: 260px; background: rgba(11, 18, 32, 0.85); backdrop-filter: blur(12px); border-right: 1px solid var(--stroke); display: flex; flex-direction: column; padding: 24px; }
+        .nav-link { color: var(--muted); text-decoration: none; padding: 10px 14px; border-radius: 10px; display: block; font-weight: 600; margin-bottom: 4px; }
+        .nav-link:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
         .main-container { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .app-header { background: rgba(11,15,20,0.9); padding: 20px 30px; border-bottom: 1px solid var(--stroke); display: flex; justify-content: space-between; align-items: center; }
+        .app-header { background: rgba(11, 15, 20, 0.9); padding: 20px 30px; border-bottom: 1px solid var(--stroke); display: flex; justify-content: space-between; align-items: center; }
         .card { border: 1px solid var(--stroke); border-radius: var(--radius); background: var(--card); padding: 20px; }
-        .btn { padding: 10px 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; font-weight: 700; }
+        .btn { padding: 10px 20px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.08); color: #fff; cursor: pointer; font-weight: 700; transition: 0.2s; }
+        .btn:hover { background: rgba(255, 255, 255, 0.15); }
         pre { background: rgba(0,0,0,0.5); color: var(--teal); padding: 1rem; font-family: 'JetBrains Mono', monospace; border-radius: 12px; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
@@ -44,46 +45,30 @@
         <main style="padding: 30px;">{{template "main" .}}</main>
     </div>
     <script>
-let resourceChart;
-
-function initChart() {
-    const chartEl = document.getElementById('resourceChart');
-    if (!chartEl) return;
-    const ctx = chartEl.getContext('2d');
-    resourceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: Array(10).fill(''),
-            datasets: [{
-                data: Array(10).fill(0),
-                borderColor: '#60a5fa',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { display: false }, y: { display: false, max: 100, min: 0 } }
+        let resourceChart;
+        function initChart() {
+            const chartEl = document.getElementById('resourceChart');
+            if (!chartEl) return;
+            const ctx = chartEl.getContext('2d');
+            resourceChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: Array(10).fill(''), datasets: [{ data: Array(10).fill(0), borderColor: '#60a5fa', tension: 0.4, fill: true, pointRadius: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false, max: 100, min: 0 } } }
+            });
         }
-    });
-}
-
-// Check if initChart exists before calling in home.page.tmpl or settings.page.tmpl
-document.addEventListener('DOMContentLoaded', () => {
-    initChart();
-    setInterval(async () => {
-        const res = await fetch('/?refresh=stats');
-        const data = await res.json();
-        if (resourceChart) {
-            resourceChart.data.datasets[0].data.shift();
-            resourceChart.data.datasets[0].data.push(data.memPercent);
-            resourceChart.update('none');
+        async function updateStats() {
+            try {
+                const res = await fetch('/?refresh=stats');
+                const data = await res.json();
+                if (resourceChart) {
+                    resourceChart.data.datasets[0].data.shift();
+                    resourceChart.data.datasets[0].data.push(data.memPercent);
+                    resourceChart.update('none');
+                }
+            } catch (e) {}
         }
-    }, 5000);
-});
+        document.addEventListener('DOMContentLoaded', () => { initChart(); setInterval(updateStats, 5000); });
+    </script>
 </body>
 </html>
 {{end}}
