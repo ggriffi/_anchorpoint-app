@@ -10,20 +10,25 @@
     </div>
 
     <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div class="card">
-            <h3>Diagnostic Suite</h3>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="diag_ip" placeholder="Target IP or Hostname" 
-                       style="flex-grow: 1; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: white; border-radius: 8px;">
-            </div>
-<div style="display: flex; flex-wrap: wrap; gap: 8px;">
-    <button onclick="runNewDiag('ping')" class="btn">Ping</button>
-    <button onclick="runNewDiag('trace')" class="btn">Trace</button>
-    <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
-    <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
-    <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="border-color: var(--teal);">iPerf Server</button>
+<div class="card">
+    <h3>Diagnostic Suite</h3>
+    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <input type="text" id="diag_ip" placeholder="Target IP or Hostname" 
+               style="flex-grow: 1; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--stroke); color: white; border-radius: 8px;">
+    </div>
     
-    <button onclick="resetIperf()" class="btn" style="border-color: #ef4444; color: #f87171;">Reset Server</button>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <button onclick="runNewDiag('ping')" class="btn">Ping</button>
+        <button onclick="runNewDiag('trace')" class="btn">Trace</button>
+        <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
+        <button onclick="runNewDiag('dns')" class="btn">DNS</button>
+        <button onclick="runNewDiag('whois')" class="btn">Whois</button>
+        <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
+        <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="border-color: var(--teal);">iPerf Server</button>
+        <button onclick="resetIperf()" class="btn" style="border-color: #ef4444; color: #f87171;">Reset Server</button>
+    </div>
+
+    <pre id="diag-output" style="margin-top: 15px; height: 300px;"></pre>
 </div>
             <pre id="diag-output" style="margin-top: 15px; min-height: 150px; max-height: 280px;"></pre>
         </div>
