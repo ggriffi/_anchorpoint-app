@@ -170,10 +170,32 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			} else {
 				currentResult = ip + " is unreachable."
 			}
-		case r.PostForm.Get("trace_ip") != "":
-			currentResult, _ = network.Traceroute(r.PostForm.Get("trace_ip"))
-		case r.PostForm.Get("mtr_ip") != "":
-			currentResult, _ = network.MTR(r.PostForm.Get("mtr_ip"))
+		// Ensure your POST switch for 'trace' and 'mtr' looks like this:
+		case r.PostForm.Get("trace_ip") != "" || r.PostForm.Get("mtr_ip") != "":
+			var target string
+			if r.PostForm.Get("trace_ip") != "" {
+				target = r.PostForm.Get("trace_ip")
+				currentResult, _ = network.Traceroute(target)
+			} else {
+				target = r.PostForm.Get("mtr_ip")
+				currentResult, _ = network.MTR(target)
+			}
+
+			if r.Header.Get("Accept") == "application/json" {
+				ips := extractIPs(currentResult)
+				var coords []HopGeo
+				for _, ip := range ips {
+					if !isPrivateIP(ip) { // Now defined!
+						geo := getGeo(ip)
+						if geo.Lat != 0 {
+							coords = append(coords, geo)
+						}
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(DiagResponse{Output: currentResult, Coords: coords})
+				return
+			}
 		case r.PostForm.Has("speedtest_run"):
 			currentResult, _ = network.RunSpeedtest()
 		case r.PostForm.Get("iperf_ip") != "":
@@ -181,16 +203,12 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		case r.PostForm.Has("iperf_server_run"):
 			currentResult, _ = network.RunIperfServer()
 		case r.PostForm.Has("iperf_reset"):
-			// Execute pkill and ignore the output buffer since we only care about the error state
+			// pkill returns 1 if no processes found, which Go treats as an error
 			err := exec.Command("pkill", "iperf3").Run()
-
 			if err != nil {
-				// pkill returns exit code 1 if no processes were matched
-				currentResult = "No active iPerf3 processes found to terminate."
-				app.infoLog.Println("iPerf3 reset requested: No processes found.")
+				currentResult = "iPerf3 Server was already idle (no processes found)."
 			} else {
-				currentResult = "iPerf3 server processes cleared successfully."
-				app.infoLog.Println("iPerf3 reset successful: Processes terminated.")
+				currentResult = "SUCCESS: Orphaned iPerf3 processes terminated. Port 5201 is now free."
 			}
 		case r.PostForm.Get("dns_lookup") != "":
 			domain := r.PostForm.Get("dns_lookup")
@@ -203,18 +221,19 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			currentResult = string(res)
 		}
 
+		// Inside your home POST handler for Trace/MTR
 		if r.Header.Get("Accept") == "application/json" {
-			ips := extractIPs(currentResult)
+			ips := extractIPs(currentResult) // Pulls IPs from terminal text
 			var coords []HopGeo
 			for _, ip := range ips {
-				if ip != "127.0.0.1" && ip != "0.0.0.0" {
+				// Skip local/private ranges that can't be geolocated
+				if !isPrivateIP(ip) {
 					geo := getGeo(ip)
-					if geo.Lat != 0 || geo.Lon != 0 {
+					if geo.Lat != 0 {
 						coords = append(coords, geo)
 					}
 				}
 			}
-			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(DiagResponse{Output: currentResult, Coords: coords})
 			return
 		}
@@ -222,6 +241,23 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 	ts, _ := template.ParseFiles("./web/html/home.page.tmpl", "./web/html/base.layout.tmpl")
 	ts.Execute(w, data)
+}
+
+// isPrivateIP checks if an IP address is a non-routable private address
+func isPrivateIP(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return true
+	}
+	// Check for IPv4 private ranges
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4[0] == 10 ||
+			(ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31) ||
+			(ip4[0] == 192 && ip4[1] == 168) ||
+			ip4[0] == 127 || // Loopback
+			ip4[0] == 169 && ip4[1] == 254 // Link-local
+	}
+	return false
 }
 
 func (app *application) systemMonitor(w http.ResponseWriter, r *http.Request) {

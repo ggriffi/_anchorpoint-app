@@ -46,16 +46,43 @@
         map = L.map('map').setView([39.3114, -94.9225], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
     });
-    async function runNewDiag(type) {
-        const out = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
-        const ip = document.getElementById('diag_ip').value;
-        out.textContent = "Running " + type + "...";
-        const body = new URLSearchParams();
-        type === 'speedtest' ? body.append('speedtest_run', 'true') : body.append(type+'_ip', ip);
-        const res = await fetch('/', { method: 'POST', body, headers: {'Accept': 'application/json'} });
-        const data = await res.json();
-        out.textContent = data.output;
+async function runNewDiag(type) {
+    const inputField = document.getElementById('diag_ip');
+    const output = document.getElementById(type === 'speedtest' ? 'speedtest-output' : 'diag-output');
+    const targetIP = inputField ? inputField.value.trim() : "";
+
+    if (type !== 'speedtest' && !targetIP) {
+        alert("Please enter a target IP or hostname");
+        return;
     }
+
+    output.textContent = ">> EXECUTING " + type.toUpperCase() + "...\n";
+    
+    let bodyData = new URLSearchParams();
+    if (type === 'speedtest') {
+        bodyData.append('speedtest_run', 'true');
+    } else {
+        // This dynamically creates 'dns_ip', 'whois_ip', 'mtr_ip' etc.
+        bodyData.append(type + '_ip', targetIP);
+    }
+
+    try {
+        const response = await fetch('/', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: bodyData
+        });
+        const data = await response.json();
+        output.textContent = data.output;
+        
+        // Fix Path Visualization
+        if (data.coords && data.coords.length > 0) {
+            updateMap(data.coords);
+        }
+    } catch (err) {
+        output.textContent = "Error: " + err;
+    }
+}
     function runIperfServer() {
         const btn = document.getElementById('iperf-server-btn');
         btn.innerText = "Listening...";
@@ -91,5 +118,15 @@
         output.textContent = "Reset Error: " + err;
     }
 }
+// MutationObserver to watch the output block and scroll to bottom on change
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        const el = mutation.target;
+        el.scrollTop = el.scrollHeight;
+    });
+});
+
+const diagOutput = document.getElementById('diag-output');
+if (diagOutput) observer.observe(diagOutput, { childList: true, characterData: true, subtree: true });
 </script>
 {{end}}
