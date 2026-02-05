@@ -49,9 +49,11 @@ type application struct {
 }
 
 type settingsData struct {
-	Usernames      []string
-	ServerPublicIP string
-	ClientIP       string
+	Usernames        []string
+	ServerPublicIP   string
+	ClientIP         string
+	MemoryUsage      string
+	DockerContainers string
 }
 
 func main() {
@@ -269,17 +271,19 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// 1. Capture Client IP to prevent base.layout.tmpl crash
+		// 1. Capture Client IP
 		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 		if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
 			clientIP = proxyIP
 		}
 
-		// 2. Wrap all data required by the templates
+		// 2. Wrap all data required by the templates (Matches templateData structure)
 		data := &settingsData{
-			Usernames:      getUsers(),
-			ServerPublicIP: network.GetPublicIP(),
-			ClientIP:       clientIP, // Now provided
+			Usernames:        getUsers(),
+			ServerPublicIP:   network.GetPublicIP(),
+			ClientIP:         clientIP,
+			MemoryUsage:      system.GetMemStats(),         // Fixes current error
+			DockerContainers: system.GetDockerContainers(), // Fixes potential next error
 		}
 
 		// 3. Execute template
@@ -290,7 +294,7 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// POST logic remains the same...
+	// POST logic
 	r.ParseForm()
 	username := r.PostForm.Get("username")
 	password := r.PostForm.Get("password")
@@ -312,6 +316,7 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 	app.infoLog.Printf("New user created: %s", username)
 	http.Redirect(w, r, "/settings?success=1", http.StatusSeeOther)
 }
+
 func (app *application) bootstrapRootUser() {
 	var exists bool
 	err := app.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username='admin')").Scan(&exists)
