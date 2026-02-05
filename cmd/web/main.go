@@ -51,6 +51,7 @@ type application struct {
 type settingsData struct {
 	Usernames      []string
 	ServerPublicIP string
+	ClientIP       string
 }
 
 func main() {
@@ -246,7 +247,7 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 		rows, err := app.db.Query("SELECT username FROM users ORDER BY username ASC")
 		if err != nil {
 			app.errorLog.Printf("DB Error fetching users: %v", err)
-			return []string{} // Return empty slice instead of nil
+			return []string{}
 		}
 		defer rows.Close()
 
@@ -268,12 +269,20 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Wrap the data so base.layout.tmpl can see ServerPublicIP
-		data := &settingsData{
-			Usernames:      getUsers(),
-			ServerPublicIP: network.GetPublicIP(), // Use your network package to get the IP
+		// 1. Capture Client IP to prevent base.layout.tmpl crash
+		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+		if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
+			clientIP = proxyIP
 		}
 
+		// 2. Wrap all data required by the templates
+		data := &settingsData{
+			Usernames:      getUsers(),
+			ServerPublicIP: network.GetPublicIP(),
+			ClientIP:       clientIP, // Now provided
+		}
+
+		// 3. Execute template
 		err = ts.Execute(w, data)
 		if err != nil {
 			app.errorLog.Printf("Template Execution Error: %v", err)
@@ -386,22 +395,23 @@ func (app *application) getLogs() string {
 
 func (app *application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Expanded CSP to allow Chart.js, Leaflet, Google Fonts, and Cloudflare
-		csp := strings.Join([]string{
-			"default-src 'self';",
-			"script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com;",
-			"style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com;",
-			"font-src 'self' https://fonts.gstatic.com;",
-			"img-src 'self' data: https://unpkg.com https://*.tile.openstreetmap.org https://anchorpoint-it.com;",
-			"connect-src 'self' https://static.cloudflareinsights.com;",
-		}, " ")
+		// Whitelist the specific CDNs and sources from your console logs
+		csp := []string{
+			"default-src 'self'",
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com",
+			"style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
+			"font-src 'self' https://fonts.gstatic.com",
+			"img-src 'self' data: https://unpkg.com https://*.tile.openstreetmap.org https://anchorpoint-it.com",
+			"connect-src 'self' https://static.cloudflareinsights.com https://cdn.jsdelivr.net https://unpkg.com",
+		}
 
-		w.Header().Set("Content-Security-Policy", csp)
+		w.Header().Set("Content-Security-Policy", strings.Join(csp, "; "))
 
 		app.infoLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
 		next.ServeHTTP(w, r)
 	})
 }
+
 func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
