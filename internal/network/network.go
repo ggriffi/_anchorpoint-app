@@ -41,7 +41,6 @@ func getRawMemData() (uint64, uint64) {
 }
 
 func GetMemStats() string {
-	// Check for the host-mapped path from docker-compose
 	path := "/proc/meminfo"
 	if _, err := os.Stat("/host/proc/meminfo"); err == nil {
 		path = "/host/proc/meminfo"
@@ -61,7 +60,6 @@ func GetMemStats() string {
 			continue
 		}
 
-		// Using a tagged switch for cleaner parsing
 		switch fields[0] {
 		case "MemTotal:":
 			total, _ = strconv.ParseUint(fields[1], 10, 64)
@@ -73,8 +71,6 @@ func GetMemStats() string {
 	if total == 0 {
 		return "0 MiB"
 	}
-
-	// Calculate actual used memory: Total - Available
 	used := (total - available) / 1024
 	return fmt.Sprintf("%v MiB", used)
 }
