@@ -173,7 +173,12 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			res, _ := network.RunSpeedtest()
 			currentResult = res
 		} else if ip := r.PostForm.Get("iperf_ip"); ip != "" {
-			res, _ := network.RunIperf(ip)
+			// Existing Client Logic
+			res, _ := network.RunIperfClient(ip)
+			currentResult = res
+		} else if r.PostForm.Has("iperf_server_run") {
+			// NEW Server Logic: This will wait up to 60s for a connection
+			res, _ := network.RunIperfServer()
 			currentResult = res
 		}
 

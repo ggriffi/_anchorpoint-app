@@ -10,20 +10,20 @@
     <div id="map" style="height: 400px; background: #eee;"></div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; margin-bottom: 24px;">
-    <div class="card" style="padding: 20px;">
-        <h3 style="margin-top: 0;">Diagnostic Tools</h3>
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <input type="text" id="diag_ip" placeholder="Target IP or Hostname" style="flex-grow: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
-        </div>
-        <div style="display: flex; gap: 8px;">
-            <button onclick="runNewDiag('ping')" class="btn">Ping</button>
-            <button onclick="runNewDiag('trace')" class="btn">Trace</button>
-            <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
-            <button onclick="runNewDiag('iperf')" class="btn">iPerf</button>
-        </div>
-        <pre id="diag-output" style="background: #f1f5f9; padding: 15px; margin-top: 15px; min-height: 100px; max-height: 300px; overflow-y: auto; font-size: 0.8rem; border: 1px solid #cbd5e1;"></pre>
+<div class="card" style="padding: 20px;">
+    <h3 style="margin-top: 0;">Diagnostic Tools</h3>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <input type="text" id="diag_ip" placeholder="Target IP or Hostname" style="flex-grow: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
     </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <button onclick="runNewDiag('ping')" class="btn">Ping</button>
+        <button onclick="runNewDiag('trace')" class="btn">Trace</button>
+        <button onclick="runNewDiag('mtr')" class="btn">MTR</button>
+        <button onclick="runNewDiag('iperf')" class="btn">iPerf Client</button>
+        <button id="iperf-server-btn" onclick="runIperfServer()" class="btn" style="background: var(--secondary); border: 1px solid var(--teal);">iPerf Server</button>
+    </div>
+    <pre id="diag-output" style="background: #f1f5f9; padding: 15px; margin-top: 15px; min-height: 100px; max-height: 300px; overflow-y: auto; font-size: 0.8rem; border: 1px solid #cbd5e1;"></pre>
+</div>
 
     <div class="card" style="padding: 20px;">
         <h3 style="margin-top: 0;">Bandwidth Analysis</h3>
@@ -183,5 +183,36 @@
         polyline = L.polyline(latLngs, {color: '#2563eb', weight: 2, dashArray: '5, 10'}).addTo(map);
         if (markers.length > 0) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
     }
+
+function runIperfServer() {
+    const btn = document.getElementById('iperf-server-btn');
+    const output = document.getElementById('diag-output');
+    
+    // UI Feedback
+    btn.innerText = "Listening...";
+    btn.disabled = true;
+    output.innerText = "Starting iPerf3 server on port 5201...\nWaiting for connection (60s timeout)...";
+
+    const formData = new FormData();
+    formData.append('iperf_server_run', 'true');
+
+    fetch('/', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        output.innerText = data.output;
+        btn.innerText = "iPerf Server";
+        btn.disabled = false;
+    })
+    .catch(error => {
+        output.innerText = "Error: " + error;
+        btn.innerText = "iPerf Server";
+        btn.disabled = false;
+    });
+}
+
 </script>
 {{end}}
