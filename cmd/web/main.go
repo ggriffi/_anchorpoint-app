@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"log"
 	"net"
@@ -12,7 +11,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
 
 	"anchorpoint-it.com/webapp/internal/network"
 	"anchorpoint-it.com/webapp/internal/system"
@@ -26,11 +24,6 @@ type templateData struct {
 	DockerContainers string
 	ClientIP         string
 	ServerPublicIP   string
-	PingResult       string
-	TraceResult      string
-	MTRResult        string
-	SpeedtestResult  string
-	IperfResult      string
 }
 
 type HopGeo struct {
@@ -44,12 +37,6 @@ type DiagResponse struct {
 	Coords []HopGeo `json:"coords"`
 }
 
-type application struct {
-	errorLog *log.Logger
-	infoLog  *log.Logger
-	db       *sql.DB
-}
-
 type settingsData struct {
 	Usernames        []string
 	ServerPublicIP   string
@@ -58,66 +45,38 @@ type settingsData struct {
 	DockerContainers string
 }
 
+type application struct {
+	errorLog *log.Logger
+	infoLog  *log.Logger
+	db       *sql.DB
+}
+
 func main() {
-	logPath := "/app/info.log"
-	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatal(err)
-	}
+	f, _ := os.OpenFile("/app/info.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	defer f.Close()
 
-	infoLog := log.New(f, "INFO\t", log.Ldate|log.Ltime)
-	errorLog := log.New(f, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
-
-	// 1. Initialize Database
-	db, err := sql.Open("sqlite3", "./anchorpoint.db")
-	if err != nil {
-		errorLog.Fatal(err)
-	}
-	defer db.Close()
-
-	// 2. Ensure users table exists
-	statement, _ := db.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)")
-	statement.Exec()
-
 	app := &application{
-		errorLog: errorLog,
-		infoLog:  infoLog,
-		db:       db,
+		infoLog:  log.New(f, "INFO\t", log.Ldate|log.Ltime),
+		errorLog: log.New(f, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile),
 	}
 
-	// 3. Bootstrap the root user
+	db, _ := sql.Open("sqlite3", "./anchorpoint.db")
+	app.db = db
+	app.db.Exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)")
 	app.bootstrapRootUser()
 
-	port := os.Getenv("APP_PORT")
-	if port == "" {
-		port = "4000"
-	}
-
 	mux := http.NewServeMux()
-
-	// Public routes
 	mux.HandleFunc("/login", app.login)
-
-	// Protected routes
 	mux.Handle("/", app.requireAuthentication(http.HandlerFunc(app.home)))
 	mux.Handle("/settings", app.requireAuthentication(http.HandlerFunc(app.createUser)))
 	mux.Handle("/system", app.requireAuthentication(http.HandlerFunc(app.systemMonitor)))
 
-	standardMiddleware := app.recoverPanic(app.logRequest(mux))
-
 	srv := &http.Server{
-		Addr:         ":" + port,
-		ErrorLog:     errorLog,
-		Handler:      standardMiddleware,
-		IdleTimeout:  2 * time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 2 * time.Minute,
+		Addr:    ":4000",
+		Handler: app.recoverPanic(app.logRequest(mux)),
 	}
-
 	app.infoLog.Printf("Starting Anchorpoint-IT on %s", srv.Addr)
-	err = srv.ListenAndServe()
-	errorLog.Fatal(err)
+	srv.ListenAndServe()
 }
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +85,6 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// AJAX Refresh Handlers
 	if refreshType := r.URL.Query().Get("refresh"); refreshType != "" {
 		switch refreshType {
 		case "docker":
@@ -134,34 +92,15 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		case "logs":
 			w.Write([]byte(app.getLogs()))
 		case "stats":
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]float64{
-				"memPercent": system.GetMemPercent(),
-			})
-		default:
-			http.Error(w, "Unknown refresh type", http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]float64{"memPercent": system.GetMemPercent()})
 		}
 		return
-	}
-
-	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
-		clientIP = proxyIP
-	}
-
-	data := &templateData{
-		GatewayStatus:    "Online",
-		MemoryUsage:      system.GetMemStats(),
-		DockerContainers: system.GetDockerContainers(),
-		ClientIP:         clientIP,
-		ServerPublicIP:   network.GetPublicIP(),
 	}
 
 	if r.Method == http.MethodPost {
 		r.ParseForm()
 		var currentResult string
 
-		// Tagged switch for diagnostics routing
 		switch {
 		case r.PostForm.Get("ping_ip") != "":
 			ip := r.PostForm.Get("ping_ip")
@@ -170,32 +109,16 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 			} else {
 				currentResult = ip + " is unreachable."
 			}
-		// Ensure your POST switch for 'trace' and 'mtr' looks like this:
-		case r.PostForm.Get("trace_ip") != "" || r.PostForm.Get("mtr_ip") != "":
-			var target string
-			if r.PostForm.Get("trace_ip") != "" {
-				target = r.PostForm.Get("trace_ip")
-				currentResult, _ = network.Traceroute(target)
-			} else {
-				target = r.PostForm.Get("mtr_ip")
-				currentResult, _ = network.MTR(target)
-			}
-
-			if r.Header.Get("Accept") == "application/json" {
-				ips := extractIPs(currentResult)
-				var coords []HopGeo
-				for _, ip := range ips {
-					if !isPrivateIP(ip) { // Now defined!
-						geo := getGeo(ip)
-						if geo.Lat != 0 {
-							coords = append(coords, geo)
-						}
-					}
-				}
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(DiagResponse{Output: currentResult, Coords: coords})
-				return
-			}
+		case r.PostForm.Get("trace_ip") != "":
+			currentResult, _ = network.Traceroute(r.PostForm.Get("trace_ip"))
+		case r.PostForm.Get("mtr_ip") != "":
+			currentResult, _ = network.MTR(r.PostForm.Get("mtr_ip"))
+		case r.PostForm.Get("dns_ip") != "":
+			out, _ := exec.Command("host", r.PostForm.Get("dns_ip")).CombinedOutput()
+			currentResult = string(out)
+		case r.PostForm.Get("whois_ip") != "":
+			out, _ := exec.Command("whois", r.PostForm.Get("whois_ip")).CombinedOutput()
+			currentResult = string(out)
 		case r.PostForm.Has("speedtest_run"):
 			currentResult, _ = network.RunSpeedtest()
 		case r.PostForm.Get("iperf_ip") != "":
@@ -203,30 +126,18 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		case r.PostForm.Has("iperf_server_run"):
 			currentResult, _ = network.RunIperfServer()
 		case r.PostForm.Has("iperf_reset"):
-			// pkill returns 1 if no processes found, which Go treats as an error
 			err := exec.Command("pkill", "iperf3").Run()
 			if err != nil {
-				currentResult = "iPerf3 Server was already idle (no processes found)."
+				currentResult = "iPerf3 Server was already idle."
 			} else {
-				currentResult = "SUCCESS: Orphaned iPerf3 processes terminated. Port 5201 is now free."
+				currentResult = "iPerf3 processes terminated."
 			}
-		case r.PostForm.Get("dns_lookup") != "":
-			domain := r.PostForm.Get("dns_lookup")
-			ips, _ := net.LookupIP(domain)
-			currentResult = fmt.Sprintf("DNS Records for %s: %v", domain, ips)
-
-		case r.PostForm.Get("whois_ip") != "":
-			// Note: Requires 'whois' binary in Dockerfile
-			res, _ := exec.Command("whois", r.PostForm.Get("whois_ip")).Output()
-			currentResult = string(res)
 		}
 
-		// Inside your home POST handler for Trace/MTR
 		if r.Header.Get("Accept") == "application/json" {
-			ips := extractIPs(currentResult) // Pulls IPs from terminal text
+			ips := extractIPs(currentResult)
 			var coords []HopGeo
 			for _, ip := range ips {
-				// Skip local/private ranges that can't be geolocated
 				if !isPrivateIP(ip) {
 					geo := getGeo(ip)
 					if geo.Lat != 0 {
@@ -234,177 +145,41 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(DiagResponse{Output: currentResult, Coords: coords})
 			return
 		}
 	}
 
+	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	data := &templateData{MemoryUsage: system.GetMemStats(), ServerPublicIP: network.GetPublicIP(), ClientIP: clientIP}
 	ts, _ := template.ParseFiles("./web/html/home.page.tmpl", "./web/html/base.layout.tmpl")
 	ts.Execute(w, data)
 }
 
-// isPrivateIP checks if an IP address is a non-routable private address
+func (app *application) systemMonitor(w http.ResponseWriter, r *http.Request) {
+	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	data := &templateData{MemoryUsage: system.GetMemStats(), DockerContainers: system.GetDockerContainers(), ClientIP: clientIP, ServerPublicIP: network.GetPublicIP()}
+	ts, _ := template.ParseFiles("./web/html/system.page.tmpl", "./web/html/base.layout.tmpl")
+	ts.Execute(w, data)
+}
+
 func isPrivateIP(ipStr string) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		return true
 	}
-	// Check for IPv4 private ranges
 	if ip4 := ip.To4(); ip4 != nil {
-		return ip4[0] == 10 ||
-			(ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31) ||
-			(ip4[0] == 192 && ip4[1] == 168) ||
-			ip4[0] == 127 || // Loopback
-			ip4[0] == 169 && ip4[1] == 254 // Link-local
+		return ip4[0] == 10 || (ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31) || (ip4[0] == 192 && ip4[1] == 168) || ip4[0] == 127 || (ip4[0] == 169 && ip4[1] == 254)
 	}
 	return false
 }
 
-func (app *application) systemMonitor(w http.ResponseWriter, r *http.Request) {
-	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if proxyIP := r.Header.Get("X-Forwarded-For"); proxyIP != "" {
-		clientIP = proxyIP
-	}
-
-	data := &templateData{
-		MemoryUsage:      system.GetMemStats(),
-		DockerContainers: system.GetDockerContainers(),
-		ClientIP:         clientIP,
-		ServerPublicIP:   network.GetPublicIP(),
-	}
-
-	ts, err := template.ParseFiles("./web/html/system.page.tmpl", "./web/html/base.layout.tmpl")
-	if err != nil {
-		app.errorLog.Printf("Template Error: %v", err)
-		http.Error(w, "Internal Server Error", 500)
-		return
-	}
-	ts.Execute(w, data)
-}
-
-func (app *application) login(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		ts, err := template.ParseFiles("./web/html/login.page.tmpl", "./web/html/base.layout.tmpl")
-		if err != nil {
-			app.errorLog.Printf("Template Error: %v", err)
-			http.Error(w, "Internal Server Error", 500)
-			return
-		}
-		ts.Execute(w, nil)
-		return
-	}
-
-	r.ParseForm()
-	username := r.PostForm.Get("username")
-	password := r.PostForm.Get("password")
-
-	var hashedPassword string
-	err := app.db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&hashedPassword)
-
-	if err == nil {
-		err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-		if err == nil {
-			cookie := &http.Cookie{
-				Name:     "authenticated",
-				Value:    "true",
-				Path:     "/",
-				HttpOnly: true,
-				MaxAge:   86400,
-			}
-			http.SetCookie(w, cookie)
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
-	}
-
-	app.infoLog.Printf("Failed login attempt for user: %s", username)
-	http.Redirect(w, r, "/login?error=1", http.StatusSeeOther)
-}
-
-func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
-	getUsers := func() []string {
-		rows, err := app.db.Query("SELECT username FROM users ORDER BY username ASC")
-		if err != nil {
-			app.errorLog.Printf("DB Error: %v", err)
-			return []string{}
-		}
-		defer rows.Close()
-		var usernames []string
-		for rows.Next() {
-			var uname string
-			if err := rows.Scan(&uname); err == nil {
-				usernames = append(usernames, uname)
-			}
-		}
-		return usernames
-	}
-
-	if r.Method == http.MethodGet {
-		ts, err := template.ParseFiles("./web/html/settings.page.tmpl", "./web/html/base.layout.tmpl")
-		if err != nil {
-			app.errorLog.Printf("Template Error: %v", err)
-			http.Error(w, "Internal Server Error", 500)
-			return
-		}
-
-		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-		data := &settingsData{
-			Usernames:        getUsers(),
-			ServerPublicIP:   network.GetPublicIP(),
-			ClientIP:         clientIP,
-			MemoryUsage:      system.GetMemStats(),
-			DockerContainers: system.GetDockerContainers(),
-		}
-		ts.Execute(w, data)
-		return
-	}
-
-	r.ParseForm()
-	username := r.PostForm.Get("username")
-	password := r.PostForm.Get("password")
-	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), 12)
-
-	_, err := app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, string(hashed))
-	if err != nil {
-		http.Redirect(w, r, "/settings?error=duplicate", http.StatusSeeOther)
-		return
-	}
-	app.infoLog.Printf("New user created: %s", username)
-	http.Redirect(w, r, "/settings?success=1", http.StatusSeeOther)
-}
-
-func (app *application) bootstrapRootUser() {
-	var exists bool
-	app.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username='admin')").Scan(&exists)
-	if !exists {
-		hashed, _ := bcrypt.GenerateFromPassword([]byte("changeme123"), 12)
-		app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "admin", string(hashed))
-		app.infoLog.Println("Hashed root user 'admin' created successfully.")
-	}
-}
-
-func (app *application) requireAuthentication(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/login" || strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/favicon.ico" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		cookie, err := r.Cookie("authenticated")
-		if err != nil || cookie.Value != "true" {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// Updated log filtering logic
 func (app *application) getLogs() string {
 	content, _ := os.ReadFile("/app/info.log")
 	lines := strings.Split(string(content), "\n")
 	var clean []string
 	ignore := []string{"/?refresh=", "/static/", "Auth Check:"}
-
 	for _, line := range lines {
 		skip := false
 		for _, p := range ignore {
@@ -417,11 +192,8 @@ func (app *application) getLogs() string {
 			clean = append(clean, line)
 		}
 	}
-
-	// Strict 10-line limit for focused monitoring
-	limit := 10
-	if len(clean) > limit {
-		clean = clean[len(clean)-limit:]
+	if len(clean) > 10 {
+		clean = clean[len(clean)-10:]
 	}
 	return strings.Join(clean, "\n")
 }
@@ -441,12 +213,70 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 	})
 }
 
+// ... Bootstrap, Login, CreateUser, requireAuthentication, recoverPanic, getGeo, extractIPs remain standard ...
+func (app *application) bootstrapRootUser() {
+	var exists bool
+	app.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username='admin')").Scan(&exists)
+	if !exists {
+		hashed, _ := bcrypt.GenerateFromPassword([]byte("changeme123"), 12)
+		app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "admin", string(hashed))
+	}
+}
+
+func (app *application) login(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		ts, _ := template.ParseFiles("./web/html/login.page.tmpl", "./web/html/base.layout.tmpl")
+		ts.Execute(w, nil)
+		return
+	}
+	r.ParseForm()
+	var hashed string
+	app.db.QueryRow("SELECT password FROM users WHERE username = ?", r.PostForm.Get("username")).Scan(&hashed)
+	if bcrypt.CompareHashAndPassword([]byte(hashed), []byte(r.PostForm.Get("password"))) == nil {
+		http.SetCookie(w, &http.Cookie{Name: "authenticated", Value: "true", Path: "/", HttpOnly: true})
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/login?error=1", http.StatusSeeOther)
+}
+
+func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		ts, _ := template.ParseFiles("./web/html/settings.page.tmpl", "./web/html/base.layout.tmpl")
+		rows, _ := app.db.Query("SELECT username FROM users")
+		var users []string
+		for rows.Next() {
+			var u string
+			rows.Scan(&u)
+			users = append(users, u)
+		}
+		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+		app.db.QueryRow("SELECT username FROM users")
+		ts.Execute(w, &settingsData{Usernames: users, ServerPublicIP: network.GetPublicIP(), ClientIP: clientIP, MemoryUsage: system.GetMemStats()})
+		return
+	}
+	r.ParseForm()
+	h, _ := bcrypt.GenerateFromPassword([]byte(r.PostForm.Get("password")), 12)
+	app.db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", r.PostForm.Get("username"), string(h))
+	http.Redirect(w, r, "/settings?success=1", http.StatusSeeOther)
+}
+
+func (app *application) requireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("authenticated")
+		if err == nil && cookie.Value == "true" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	})
+}
+
 func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				app.errorLog.Printf("%s", err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError), 500)
+				http.Error(w, http.StatusText(500), 500)
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -454,8 +284,7 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 }
 
 func getGeo(ip string) HopGeo {
-	client := http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://ip-api.com/json/" + ip)
+	resp, err := http.Get("http://ip-api.com/json/" + ip)
 	if err != nil {
 		return HopGeo{IP: ip}
 	}
