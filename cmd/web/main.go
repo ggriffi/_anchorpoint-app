@@ -236,18 +236,21 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
-	// Helper function to get the current user list
+	// Helper to ensure we always have a slice, even if empty
 	getUsers := func() []string {
 		rows, err := app.db.Query("SELECT username FROM users ORDER BY username ASC")
 		if err != nil {
-			return nil
+			app.errorLog.Printf("DB Error fetching users: %v", err)
+			return []string{} // Return empty slice instead of nil
 		}
 		defer rows.Close()
-		var usernames []string
+
+		usernames := []string{}
 		for rows.Next() {
 			var uname string
-			rows.Scan(&uname)
-			usernames = append(usernames, uname)
+			if err := rows.Scan(&uname); err == nil {
+				usernames = append(usernames, uname)
+			}
 		}
 		return usernames
 	}
@@ -255,15 +258,20 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		ts, err := template.ParseFiles("./web/html/settings.page.tmpl", "./web/html/base.layout.tmpl")
 		if err != nil {
-			app.errorLog.Println(err)
+			app.errorLog.Printf("Template Parsing Error: %v", err)
 			http.Error(w, "Internal Server Error", 500)
 			return
 		}
-		// Pass the usernames slice to the template
-		ts.Execute(w, getUsers())
+
+		// Passing the slice directly; template will now handle an empty slice gracefully
+		err = ts.Execute(w, getUsers())
+		if err != nil {
+			app.errorLog.Printf("Template Execution Error: %v", err)
+		}
 		return
 	}
 
+	// POST logic remains the same...
 	r.ParseForm()
 	username := r.PostForm.Get("username")
 	password := r.PostForm.Get("password")
@@ -285,7 +293,6 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 	app.infoLog.Printf("New user created: %s", username)
 	http.Redirect(w, r, "/settings?success=1", http.StatusSeeOther)
 }
-
 func (app *application) bootstrapRootUser() {
 	var exists bool
 	err := app.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username='admin')").Scan(&exists)
@@ -312,7 +319,8 @@ func (app *application) bootstrapRootUser() {
 
 func (app *application) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/login" {
+		// Allow login, static files, and favicon to bypass auth
+		if r.URL.Path == "/login" || strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/favicon.ico" {
 			next.ServeHTTP(w, r)
 			return
 		}

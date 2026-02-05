@@ -66,17 +66,17 @@ func MTR(host string) (string, error) {
 
 // RunIperf ensures we are the client pushing to a remote destination
 func RunIperf(server string) (string, error) {
-	// -c: Client mode | -t 10: 10 second test | -R: Reverse mode (server sends, we receive)
-	// Adding -R allows you to test the "Download" path to your VPS
-	cmd := exec.Command("iperf3", "-c", "99.20.245.59", "-p", "5201", "-t", "5", "-R")
+	// Use the 'server' variable instead of the hard-coded IP
+	cmd := exec.Command("iperf3", "-c", server, "-p", "5201", "-t", "5", "-R")
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
 
 // RunSpeedtest performs a full bi-directional bandwidth test
 func RunSpeedtest() (string, error) {
-	// No extra flags needed for reverse; speedtest-cli tests both ways by default
-	cmd := exec.Command("speedtest-cli", "--simple")
+	// --secure often bypasses the 403 Forbidden error by using HTTPS
+	// --timeout 10 prevents the dashboard from hanging if the server is slow
+	cmd := exec.Command("speedtest-cli", "--simple", "--secure", "--timeout", "10")
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
