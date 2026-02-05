@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"anchorpoint-it.com/webapp/internal/network"
 	"anchorpoint-it.com/webapp/internal/system"
@@ -151,17 +152,36 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-	data := &templateData{MemoryUsage: system.GetMemStats(), ServerPublicIP: network.GetPublicIP(), ClientIP: clientIP}
+	clientIP := app.getRemoteIP(r) // Corrected to use helper
+	data := &templateData{
+		MemoryUsage:    system.GetMemStats(),
+		ServerPublicIP: network.GetPublicIP(),
+		ClientIP:       clientIP,
+	}
 	ts, _ := template.ParseFiles("./web/html/home.page.tmpl", "./web/html/base.layout.tmpl")
 	ts.Execute(w, data)
 }
 
 func (app *application) systemMonitor(w http.ResponseWriter, r *http.Request) {
-	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-	data := &templateData{MemoryUsage: system.GetMemStats(), DockerContainers: system.GetDockerContainers(), ClientIP: clientIP, ServerPublicIP: network.GetPublicIP()}
+	clientIP := app.getRemoteIP(r) // Corrected to use helper
+	data := &templateData{
+		MemoryUsage:      system.GetMemStats(),
+		DockerContainers: system.GetDockerContainers(),
+		ClientIP:         clientIP,
+		ServerPublicIP:   network.GetPublicIP(),
+	}
 	ts, _ := template.ParseFiles("./web/html/system.page.tmpl", "./web/html/base.layout.tmpl")
 	ts.Execute(w, data)
+}
+
+func (app *application) getRemoteIP(r *http.Request) string {
+	// Correctly identifies client behind proxy
+	forwarded := r.Header.Get("X-Forwarded-For")
+	if forwarded != "" {
+		return strings.Split(forwarded, ",")[0]
+	}
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	return ip
 }
 
 func isPrivateIP(ipStr string) bool {
@@ -213,7 +233,6 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 	})
 }
 
-// ... Bootstrap, Login, CreateUser, requireAuthentication, recoverPanic, getGeo, extractIPs remain standard ...
 func (app *application) bootstrapRootUser() {
 	var exists bool
 	app.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username='admin')").Scan(&exists)
@@ -250,9 +269,14 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 			rows.Scan(&u)
 			users = append(users, u)
 		}
-		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
-		app.db.QueryRow("SELECT username FROM users")
-		ts.Execute(w, &settingsData{Usernames: users, ServerPublicIP: network.GetPublicIP(), ClientIP: clientIP, MemoryUsage: system.GetMemStats()})
+		clientIP := app.getRemoteIP(r)
+		ts.Execute(w, &settingsData{
+			Usernames:        users,
+			ServerPublicIP:   network.GetPublicIP(),
+			ClientIP:         clientIP,
+			MemoryUsage:      system.GetMemStats(),
+			DockerContainers: system.GetDockerContainers(),
+		})
 		return
 	}
 	r.ParseForm()
@@ -284,7 +308,9 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 }
 
 func getGeo(ip string) HopGeo {
-	resp, err := http.Get("http://ip-api.com/json/" + ip)
+	// Added a small timeout for reliability
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://ip-api.com/json/" + ip)
 	if err != nil {
 		return HopGeo{IP: ip}
 	}
@@ -295,6 +321,6 @@ func getGeo(ip string) HopGeo {
 }
 
 func extractIPs(text string) []string {
-	re := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+	re := regexp.MustCompile(`(?:\d{1,3}\.){3}\d{1,3}`)
 	return re.FindAllString(text, -1)
 }
