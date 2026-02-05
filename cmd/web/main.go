@@ -400,7 +400,6 @@ func (app *application) getLogs() string {
 
 func (app *application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Whitelist the specific CDNs and sources from your console logs
 		csp := []string{
 			"default-src 'self'",
 			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com",
@@ -409,10 +408,7 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 			"img-src 'self' data: https://unpkg.com https://*.tile.openstreetmap.org https://anchorpoint-it.com",
 			"connect-src 'self' https://static.cloudflareinsights.com https://cdn.jsdelivr.net https://unpkg.com",
 		}
-
 		w.Header().Set("Content-Security-Policy", strings.Join(csp, "; "))
-
-		app.infoLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
 		next.ServeHTTP(w, r)
 	})
 }
