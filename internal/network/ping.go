@@ -72,11 +72,13 @@ func RunIperf(server string) (string, error) {
 	return string(out), err
 }
 
-// RunSpeedtest performs a full bi-directional bandwidth test
 func RunSpeedtest() (string, error) {
-	// --secure often bypasses the 403 Forbidden error by using HTTPS
-	// --timeout 10 prevents the dashboard from hanging if the server is slow
-	cmd := exec.Command("speedtest-cli", "--simple", "--secure", "--timeout", "10")
+	// --secure is vital in containers to avoid 403 blocks
+	// --json can also be used if you want to parse the data later for your dashboard
+	cmd := exec.Command("speedtest-cli", "--simple", "--secure")
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	if err != nil {
+		return "Speedtest Error: " + string(out), err
+	}
+	return string(out), nil
 }

@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     iperf3 \
     speedtest-cli \
+    libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Docker's official GPG key and repo to get the latest CLI

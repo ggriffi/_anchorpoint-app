@@ -1,26 +1,58 @@
 package network
 
 import (
+	"bufio"
 	"fmt"
-	"runtime"
+	"os"
+	"strconv"
+	"strings"
 )
 
-// GetMemPercent calculates current memory usage as a percentage
-func GetMemPercent() float64 {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	if m.Sys == 0 {
-		return 0
+// getRawMemData is a helper to avoid repeating logic
+func getRawMemData() (uint64, uint64) {
+	path := "/proc/meminfo"
+	if _, err := os.Stat("/host/proc/meminfo"); err == nil {
+		path = "/host/proc/meminfo"
 	}
 
-	// Returns the percentage of heap memory relative to total system-reserved memory
-	return (float64(m.Alloc) / float64(m.Sys)) * 100
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, 0
+	}
+	defer file.Close()
+
+	var total, available uint64
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		// Only one scanner.Scan() call per loop!
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 2 {
+			continue
+		}
+
+		switch fields[0] {
+		case "MemTotal:":
+			total, _ = strconv.ParseUint(fields[1], 10, 64)
+		case "MemAvailable:":
+			available, _ = strconv.ParseUint(fields[1], 10, 64)
+		}
+	}
+	return total, available
 }
 
-// GetMemStats returns a formatted string for the dashboard header
 func GetMemStats() string {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	return fmt.Sprintf("%v MiB", m.Alloc/1024/1024)
+	total, available := getRawMemData()
+	if total == 0 {
+		return "0 MiB"
+	}
+	used := (total - available) / 1024
+	return fmt.Sprintf("%v MiB", used)
+}
+
+func GetMemPercent() float64 {
+	total, available := getRawMemData()
+	if total == 0 {
+		return 0.0
+	}
+	return (float64(total-available) / float64(total)) * 100
 }

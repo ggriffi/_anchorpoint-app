@@ -13,3 +13,5 @@ services:
       - ./info.log:/app/info.log
       # Logic: Mount the docker socket so system.GetDockerContainers() works
       - /var/run/docker.sock:/var/run/docker.sock
+# Add this line to give the app access to host system stats:
+      - /proc:/host/proc:ro
