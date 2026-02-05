@@ -118,12 +118,9 @@ async function runNewDiag(type) {
         output.textContent = "Reset Error: " + err;
     }
 }
-// MutationObserver to watch the output block and scroll to bottom on change
 const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        const el = mutation.target;
-        el.scrollTop = el.scrollHeight;
-    });
+    const el = document.getElementById('diag-output');
+    if (el) el.scrollTop = el.scrollHeight;
 });
 
 const diagOutput = document.getElementById('diag-output');

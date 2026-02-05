@@ -19,19 +19,23 @@
         .card { border: 1px solid var(--stroke); border-radius: var(--radius); background: var(--card); padding: 20px; }
         .btn { padding: 10px 20px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.08); color: #fff; cursor: pointer; font-weight: 700; transition: 0.2s; }
         .btn:hover { background: rgba(255, 255, 255, 0.15); }
-        pre {
-    background: rgba(0, 0, 0, 0.5); /* Matches your dark theme [cite: 22] */
-    color: var(--teal); /* Uses your brand high-visibility green [cite: 2, 22] */
+ pre {
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--teal);
     padding: 1rem;
     font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
     border-radius: 12px;
-    
-    /* ADD THESE LINES TO FIX THE OVERFLOW */
-    height: 350px; /* Limits the height so it doesn't push the cards off-screen */
-    overflow-y: auto; /* Adds the vertical scrollbar only when needed */
-    white-space: pre-wrap; /* Ensures long lines wrap instead of stretching the box */
-    word-break: break-all; /* Prevents long strings (like hashes) from breaking the layout */
     border: 1px solid var(--stroke);
+    
+    /* Strict containment */
+    height: 350px; 
+    overflow-y: auto; 
+    white-space: pre-wrap; 
+    word-break: break-all;
+    
+    /* Enable smooth scrolling */
+    scroll-behavior: smooth;
 }
     </style>
 </head>
