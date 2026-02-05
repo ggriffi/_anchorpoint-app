@@ -127,11 +127,16 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		case r.PostForm.Has("iperf_server_run"):
 			currentResult, _ = network.RunIperfServer()
 		case r.PostForm.Has("iperf_reset"):
-			err := exec.Command("pkill", "iperf3").Run()
+			// Use fuser to kill whatever is holding the iPerf3 port open
+			// -k: kill, -n tcp: protocol, 5201: port
+			err := exec.Command("fuser", "-k", "5201/tcp").Run()
+
 			if err != nil {
-				currentResult = "iPerf3 Server was already idle."
+				// If fuser fails, fall back to pkill just in case
+				exec.Command("pkill", "iperf3").Run()
+				currentResult = "Port 5201 was already clear or reset via pkill."
 			} else {
-				currentResult = "iPerf3 processes terminated."
+				currentResult = "SUCCESS: Port 5201 has been forcefully cleared."
 			}
 		}
 
